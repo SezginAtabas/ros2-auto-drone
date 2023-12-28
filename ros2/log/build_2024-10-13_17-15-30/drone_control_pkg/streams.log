@@ -1,0 +1,16 @@
+[0.807s] Invoking command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/drone_control_pkg': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/drone_control_pkg build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/install.log --single-version-externally-managed install_data
+[0.946s] running egg_info
+[0.948s] writing manifest file '../../build/drone_control_pkg/drone_control_pkg.egg-info/SOURCES.txt'
+[0.948s] running build
+[0.948s] running build_py
+[0.948s] copying drone_control_pkg/drone_control_node.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib/drone_control_pkg
+[0.948s] running install
+[0.948s] running install_lib
+[0.949s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg/drone_control_node.py to drone_control_node.cpython-310.pyc
+[0.950s] running install_data
+[0.950s] running install_egg_info
+[0.951s] removing '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg-0.0.0-py3.10.egg-info' (and everything under it)
+[0.951s] Copying ../../build/drone_control_pkg/drone_control_pkg.egg-info to /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg-0.0.0-py3.10.egg-info
+[0.951s] running install_scripts
+[0.961s] writing list of installed files to '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/install.log'
+[0.973s] Invoked command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/drone_control_pkg' returned '0': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/drone_control_pkg build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/install.log --single-version-externally-managed install_data

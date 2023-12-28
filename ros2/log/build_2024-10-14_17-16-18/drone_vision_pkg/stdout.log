@@ -1,0 +1,12 @@
+running egg_info
+writing manifest file '../../build/drone_vision_pkg/drone_vision_pkg.egg-info/SOURCES.txt'
+running build
+running build_py
+running install
+running install_lib
+running install_data
+running install_egg_info
+removing '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg-0.0.0-py3.10.egg-info' (and everything under it)
+Copying ../../build/drone_vision_pkg/drone_vision_pkg.egg-info to /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg-0.0.0-py3.10.egg-info
+running install_scripts
+writing list of installed files to '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/install.log'

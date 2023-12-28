@@ -1,0 +1,38 @@
+[0.786s] Invoking command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/drone_control_pkg': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/drone_control_pkg build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/install.log --single-version-externally-managed install_data
+[0.923s] running egg_info
+[0.924s] creating ../../build/drone_control_pkg/drone_control_pkg.egg-info
+[0.924s] writing manifest file '../../build/drone_control_pkg/drone_control_pkg.egg-info/SOURCES.txt'
+[0.925s] writing manifest file '../../build/drone_control_pkg/drone_control_pkg.egg-info/SOURCES.txt'
+[0.925s] running build
+[0.925s] running build_py
+[0.925s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build
+[0.925s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib
+[0.926s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib/drone_control_pkg
+[0.926s] copying drone_control_pkg/drone_control_node_old.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib/drone_control_pkg
+[0.926s] copying drone_control_pkg/__init__.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib/drone_control_pkg
+[0.926s] copying drone_control_pkg/drone_control_node.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib/drone_control_pkg
+[0.926s] copying drone_control_pkg/drone_setup_node.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build/lib/drone_control_pkg
+[0.926s] running install
+[0.926s] running install_lib
+[0.926s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg
+[0.926s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg/drone_control_node_old.py to drone_control_node_old.cpython-310.pyc
+[0.928s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg/__init__.py to __init__.cpython-310.pyc
+[0.928s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg/drone_control_node.py to drone_control_node.cpython-310.pyc
+[0.928s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg/drone_setup_node.py to drone_setup_node.cpython-310.pyc
+[0.929s] running install_data
+[0.929s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/ament_index
+[0.929s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/ament_index/resource_index
+[0.929s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/ament_index/resource_index/packages
+[0.929s] copying resource/drone_control_pkg -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/ament_index/resource_index/packages
+[0.929s] copying package.xml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg
+[0.929s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg/launch
+[0.929s] copying launch/mavros.launch.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg/launch
+[0.929s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg/config
+[0.929s] copying config/apm_params.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg/config
+[0.929s] copying config/apm_pluginlists.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg/config
+[0.929s] copying config/apm_config.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/share/drone_control_pkg/config
+[0.929s] running install_egg_info
+[0.930s] Copying ../../build/drone_control_pkg/drone_control_pkg.egg-info to /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages/drone_control_pkg-0.0.0-py3.10.egg-info
+[0.930s] running install_scripts
+[0.939s] writing list of installed files to '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/install.log'
+[0.950s] Invoked command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/drone_control_pkg' returned '0': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_control_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/drone_control_pkg build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_control_pkg/install.log --single-version-externally-managed install_data

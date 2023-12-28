@@ -1,0 +1,46 @@
+[0.787s] Invoking command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/drone_vision_pkg': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/drone_vision_pkg build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/install.log --single-version-externally-managed install_data
+[0.922s] running egg_info
+[0.922s] creating ../../build/drone_vision_pkg/drone_vision_pkg.egg-info
+[0.922s] writing manifest file '../../build/drone_vision_pkg/drone_vision_pkg.egg-info/SOURCES.txt'
+[0.924s] writing manifest file '../../build/drone_vision_pkg/drone_vision_pkg.egg-info/SOURCES.txt'
+[0.924s] running build
+[0.924s] running build_py
+[0.924s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build
+[0.924s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build/lib
+[0.924s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build/lib/drone_vision_pkg
+[0.924s] copying drone_vision_pkg/drone_vision_node.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build/lib/drone_vision_pkg
+[0.924s] copying drone_vision_pkg/vision_pose_node.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build/lib/drone_vision_pkg
+[0.924s] copying drone_vision_pkg/__init__.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build/lib/drone_vision_pkg
+[0.924s] copying drone_vision_pkg/trt_node.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build/lib/drone_vision_pkg
+[0.925s] running install
+[0.925s] running install_lib
+[0.925s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg
+[0.926s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg/drone_vision_node.py to drone_vision_node.cpython-310.pyc
+[0.926s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg/vision_pose_node.py to vision_pose_node.cpython-310.pyc
+[0.926s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg/__init__.py to __init__.cpython-310.pyc
+[0.926s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg/trt_node.py to trt_node.cpython-310.pyc
+[0.928s] running install_data
+[0.928s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/ament_index
+[0.928s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/ament_index/resource_index
+[0.928s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/ament_index/resource_index/packages
+[0.928s] copying resource/drone_vision_pkg -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/ament_index/resource_index/packages
+[0.928s] copying package.xml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg
+[0.928s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/launch
+[0.928s] copying launch/ekf.launch.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/launch
+[0.929s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.929s] copying config/zed_common.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.929s] copying config/zed.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.929s] copying config/zedm.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.929s] copying config/zed2i.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.929s] copying config/zedx.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.929s] copying config/zed2.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.930s] copying config/ekf.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.930s] copying config/zedxm.yaml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/config
+[0.930s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/urdf
+[0.930s] copying urdf/drone_body.xacro -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/urdf
+[0.930s] copying urdf/drone_description.urdf.xacro -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/share/drone_vision_pkg/urdf
+[0.930s] running install_egg_info
+[0.931s] Copying ../../build/drone_vision_pkg/drone_vision_pkg.egg-info to /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages/drone_vision_pkg-0.0.0-py3.10.egg-info
+[0.931s] running install_scripts
+[0.941s] writing list of installed files to '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/install.log'
+[0.952s] Invoked command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/drone_vision_pkg' returned '0': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/drone_vision_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/drone_vision_pkg build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/drone_vision_pkg/install.log --single-version-externally-managed install_data

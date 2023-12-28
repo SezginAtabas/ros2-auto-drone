@@ -1,0 +1,32 @@
+[0.819s] Invoking command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/ros2_poselib': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/ros2_poselib build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/install.log --single-version-externally-managed install_data
+[0.955s] running egg_info
+[0.955s] creating ../../build/ros2_poselib/ros2_poselib.egg-info
+[0.955s] writing manifest file '../../build/ros2_poselib/ros2_poselib.egg-info/SOURCES.txt'
+[0.956s] writing manifest file '../../build/ros2_poselib/ros2_poselib.egg-info/SOURCES.txt'
+[0.956s] running build
+[0.957s] running build_py
+[0.957s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build
+[0.957s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build/lib
+[0.957s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build/lib/ros2_poselib
+[0.957s] copying ros2_poselib/__init__.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build/lib/ros2_poselib
+[0.957s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build/lib/ros2_poselib/poselib
+[0.957s] copying ros2_poselib/poselib/__init__.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build/lib/ros2_poselib/poselib
+[0.957s] copying ros2_poselib/poselib/_pose.py -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build/lib/ros2_poselib/poselib
+[0.957s] running install
+[0.957s] running install_lib
+[0.957s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages/ros2_poselib
+[0.957s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages/ros2_poselib/poselib
+[0.958s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages/ros2_poselib/poselib/__init__.py to __init__.cpython-310.pyc
+[0.958s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages/ros2_poselib/poselib/_pose.py to _pose.cpython-310.pyc
+[0.958s] byte-compiling /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages/ros2_poselib/__init__.py to __init__.cpython-310.pyc
+[0.958s] running install_data
+[0.958s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/share/ament_index
+[0.958s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/share/ament_index/resource_index
+[0.958s] creating /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/share/ament_index/resource_index/packages
+[0.958s] copying resource/ros2_poselib -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/share/ament_index/resource_index/packages
+[0.958s] copying package.xml -> /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/share/ros2_poselib
+[0.958s] running install_egg_info
+[0.959s] Copying ../../build/ros2_poselib/ros2_poselib.egg-info to /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages/ros2_poselib-0.0.0-py3.10.egg-info
+[0.959s] running install_scripts
+[0.969s] writing list of installed files to '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/install.log'
+[0.979s] Invoked command in '/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/src/ros2_poselib' returned '0': PYTHONPATH=/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/xtrana/PycharmProjects/ros2-auto-drone/ros2/install/ros2_poselib/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/ros2_poselib build --build-base /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/build install --record /home/xtrana/PycharmProjects/ros2-auto-drone/ros2/build/ros2_poselib/install.log --single-version-externally-managed install_data
