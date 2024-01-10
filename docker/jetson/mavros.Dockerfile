@@ -1,18 +1,16 @@
-ARG ROS_VERSION=humble
-ARG ROS_IMAGE=-ros-base-jammy
-FROM ros:$ROS_VERSION$ROS_IMAGE
+FROM rockstarartist/mavros2:humble-arm64
+
+ENV ROS_DISTRO=humble
+
+WORKDIR /root/ros2_ws/src
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
-    ros-humble-mavros \
-    ros-humble-mavros-extras \
     && rm -rf /var/lib/apt/lists/*
 
+
+# install needed stuff with pip
 RUN pip install numpy transforms3d setuptools==58.2.0
-
-
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    ros2 run mavros install_geographiclib_datasets.sh
 
 # copy the package
 COPY drone_control_pkg /root/ros2_ws/src
@@ -22,10 +20,10 @@ WORKDIR /root/ros2_ws/
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
     colcon build
 
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    ros2 run mavros install_geographiclib_datasets.sh
-
-RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc \
-    && echo "source /root/ros2_ws/install/local_setup.bash" >> ~/.bashrc
+ADD ros_entrypoint.sh /bash_scripts/
+RUN chmod +x /bash_scripts/ros_entrypoint.sh
+ENTRYPOINT [ "/bash_scripts/ros_entrypoint.sh" ]
 
 CMD ["bash"]
+
+# docker run -v /dev/shm:/dev/shm --net=host -it mavros:test2 ros2 launch mavros apm.launch fcu_url:=udp://:14550@localhost:5762
