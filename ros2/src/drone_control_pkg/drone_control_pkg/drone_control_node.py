@@ -7,19 +7,27 @@ from geometry_msgs.msg import PoseStamped, PointStamped, Quaternion
 from std_msgs.msg import String
 
 # import service definitions for changing mode, arming, take-off and generic command
-from mavros_msgs.srv import (
-    SetMode,
-    CommandBool,
-    CommandTOL,
-    CommandLong,
-    MessageInterval,
+from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, CommandLong
+
+import transforms3d as tf3d
+import math
+
+# STATE_QOS used for state topics, like ~/state, ~/mission/waypoints etc.
+STATE_QOS = rclpy.qos.QoSProfile(
+    depth=10, durability=rclpy.qos.QoSDurabilityPolicy.TRANSIENT_LOCAL
 )
 
-from collections import deque
+TARGET_QOS = rclpy.qos.QoSProfile(
+    depth=20,
+    durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL,
+    reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
+)
 
-import numpy as np
-from scipy.spatial.transform import Rotation as R
-from ros2_poselib.poselib import Pose3D
+# SENSOR_QOS used for most of sensor streams
+SENSOR_QOS = rclpy.qos.qos_profile_sensor_data
+
+# PARAMETERS_QOS used for parameter streams
+PARAMETERS_QOS = rclpy.qos.qos_profile_parameters
 
 
 # gz sim -v4 -r iris_runway.sdf
@@ -32,19 +40,32 @@ from ros2_poselib.poselib import Pose3D
 
 class DroneControllerNode(Node):
     def __init__(self):
-        """
-        The `DroneControllerNode` class is responsible for controlling the behavior of a drone using ROS2.
-        It handles communication via clients, publishers, and subscribers for tasks such as state monitoring,
-        mode changes, takeoff, arming, and interval settings for MavLink messages.
-        """
         super().__init__("drone_controller_node")
 
-        # <------ Variables ------>
-        # keep track of the drone status.
-        self.drone_state_queue = deque(maxlen=1)
-        self.drone_local_pos_queue = deque(maxlen=100)
+        # last status message
+        self.last_state = None
+        # last known local position message
+        self.local_pos = None
+        # last sent target position message
+        self.last_target_msg = PoseStamped()
 
-        # <------ Clients ------>
+        # last known landing target position message
+        self.landing_target_position = None
+        # last known landing target position message
+        self.landing_target_drone_position = None
+        # drones position when the last landing target position message was received
+
+        # last known avocado target position message
+        self.avocado_target_position = None
+        # drones position when the last avocado target position message was received
+        self.avocado_target_drone_position = None
+
+        # used to tell the trt_node to which object to search for. can be 'landing_pad' or 'avocado' default is landing pad
+        self.current_detection_target = "landing_pad"
+
+        self.is_landing_with_vision = False
+
+        # create service clients
         # for long command (datastream requests)...
         self.cmd_cli = self.create_client(CommandLong, "/mavros/cmd/command")
         # for mode changes ...
@@ -53,398 +74,446 @@ class DroneControllerNode(Node):
         self.arm_cli = self.create_client(CommandBool, "/mavros/cmd/arming")
         # for takeoff
         self.takeoff_cli = self.create_client(CommandTOL, "/mavros/cmd/takeoff")
-        # to set interval between received MavLink messages
-        self.message_interval_cli = self.create_client(
-            MessageInterval, "/mavros/set_message_interval"
-        )
 
-        # <------ Publishers and Subscribers ------>
-
-        # Quality of service used for state topics, like ~/state, ~/mission/waypoints etc.
-        state_qos = rclpy.qos.QoSProfile(
-            depth=10, durability=rclpy.qos.QoSDurabilityPolicy.TRANSIENT_LOCAL
-        )
-        # Quality of service used for the target publisher/
-        target_qos = rclpy.qos.QoSProfile(
-            depth=20,
-            durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL,
-            reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
-        )
-        # Quality of service used for most sensor streams
-        sensor_qos = rclpy.qos.qos_profile_sensor_data
-        # PARAMETERS_QOS used for parameter streams
-        parameter_qos = rclpy.qos.qos_profile_parameters
-
-        # Subscriber for the state of the drone.
-        self.state_sub = self.create_subscription(
-            State, "/mavros/state", self.state_callback, state_qos
-        )
-        # publisher for setpoint commands, this used to control the drone
-        # in its local coordinate system. Received and sent commands are in
-        # meters.
+        # publisher for setpoint
         self.target_pub = self.create_publisher(
             PoseStamped, "/mavros/setpoint_position/local", 10
         )
-        # subscriber for drone`s local position.
+        # publisher for the current detection target variable
+        self.current_detection_target_pub = self.create_publisher(
+            String, "/my_drone/current_detection_target", 10
+        )
+
+        # sub for vehicle state
+        self.state_sub = self.create_subscription(
+            State, "/mavros/state", self.state_callback, STATE_QOS
+        )
+        # sub for local position
         self.pos_sub = self.create_subscription(
             PoseStamped,
             "/mavros/local_position/pose",
             self.local_position_callback,
-            sensor_qos,
+            SENSOR_QOS,
+        )
+        # sub for target landing position x y and z are distance from the drone to the target in meters
+        self.landing_target_sub = self.create_subscription(
+            PointStamped,
+            "/my_drone/landing_target_position",
+            self.landing_target_callback,
+            SENSOR_QOS,
+        )
+        # sub for avocado target position x y and z are distance from the drone to the target in meters
+        self.avocado_target_sub = self.create_subscription(
+            PointStamped,
+            "/my_drone/avocado_target_position",
+            self.avocado_target_callback,
+            SENSOR_QOS,
         )
 
-        # MavLink messages to request from the drone flight controller.
-        # These are drone position, attitude etc. And are requested using
-        # set_all_message_interval function which makes async calls to
-        # /mavros/set_message_interval service.
-        # Message id, Interval in microseconds
-        self.messages_to_request = (
-            (32, 100000),  # local position
-            (33, 100000),  # global position
+        # publisher to send landing_target messages to mavros
+        self.landing_target_pub = self.create_publisher(
+            PoseStamped, "/mavros/landing_target/pose_in", qos_profile=TARGET_QOS
         )
 
-        # Flight plan of the drone.
-        # Determines what actions drone will take.
-        self.flight_plan = {
-            "takeoff": {"altitude": 3.0},
-            "hover": {"duration": 5.0},
-            "land": {},
-        }
-        # Flight plan tracking variables
-        self.flight_plan_actions = [
-            action for action in self.flight_plan.keys() if action != "takeoff"
-        ]
-        self.current_action_index = 0
-        self.action_start_time = None
-        self.state = "INACTIVE"
+        self.start()
 
-        self.timer = self.create_timer(1.0, self.main_loop)
+    def avocado_target_callback(self, msg):
+        # save the last avocado target position message
+        self.avocado_target_position = msg
+        # save the drones position when the last avocado target position message was received
+        self.avocado_target_drone_position = self.local_pos
+        self.get_logger().debug("Avocado target position: {}".format(msg.point))
 
-    def local_position_callback(self, msg: PoseStamped) -> None:
-        """Creates a `Pose3D` object from the local position message received from the drone then
-        appends it to `drone_local_pos_queue`.
+    def landing_target_callback(self, msg):
+        # save the last landing target position message
+        self.landing_target_position = msg
+        # save the drones position when the last landing target position message was received
+        self.landing_target_drone_position = self.local_pos
+        self.get_logger().debug("Landing target position: {}".format(msg.point))
 
-        Args:
-            msg (PoseStamped): The pose message received from the drone.
-            This contains the position and orientation information of the
-            drone in a ROS standard PoseStamped message format.
+    def request_data_stream(self, msg_id, msg_interval):
+        # request data streams from the vehicle. msg_id is the MAVLink message ID, msg_interval is the interval in microseconds
+        cmd_req = CommandLong.Request()
+        cmd_req.command = 511
+        cmd_req.param1 = float(msg_id)
+        cmd_req.param2 = float(msg_interval)
+        future = self.cmd_cli.call_async(cmd_req)
+        rclpy.spin_until_future_complete(self, future)  # wait for response))
+
+    def wait_for_new_status(self):
         """
-        self.drone_local_pos_queue.append(Pose3D.from_msg(msg))
-
-    def state_callback(self, msg: State) -> None:
-        """Appends the received state message to `drone_state_queue`.
-        This state data is used to check if the drone is armed, landed, etc.
-
-        Args:
-            msg (State): The current state of the drone.
+        Wait for new state message to be received.  These are sent at
+        1Hz so calling this is roughly equivalent to one second delay.
         """
-        self.drone_state_queue.append(msg)
+        if self.last_state:
+            # if had a message before, wait for higher timestamp
+            last_stamp = self.last_state.header.stamp.sec
+            for _ in range(60):
+                rclpy.spin_once(self)
+                if self.last_state.header.stamp.sec > last_stamp:
+                    break
+        else:
+            # if never had a message, just wait for first one
+            for _ in range(60):
+                if self.last_state:
+                    break
+                rclpy.spin_once(self)
 
-    def set_all_message_interval(self) -> None:
-        """
-        Requests data from the drone flight controller in the form of MavLink messages.
-        Requested messages will be sent at periodic intervals, which are then processed by
-        mavros and published to topics. This function makes async calls to "/mavros/set_message_interval service"
-        to request these messages. Which then sends a MAV_CMD_SET_MESSAGE_INTERVAL commands to the drone.
-
-        MavLink message ids can be found here: https://mavlink.io/en/messages/common.html
-
-        Returns:
-            None
-        """
-        for msg_id, msg_interval in self.messages_to_request:
-            cmd = MessageInterval.Request()
-            cmd.message_id = msg_id
-            cmd.message_rate = float(msg_interval)
-            future = self.message_interval_cli.call_async(cmd)
-            future.add_done_callback(
-                lambda f, message_id=msg_id: self.message_interval_callback(f, msg_id)
-            )
-
-    def message_interval_callback(self, future, message_id):
-        """Handles the callback for the set_message_interval service call. Logs whether the message interval
-        request was successful.
-
-        Args:
-            future: The future object representing asynchronous result of a service call.
-            message_id: The identifier of the message for which the interval is set.
-
-        """
-        try:
-            response = future.result()
-            if response.success:
-                self.get_logger().info(
-                    f"Set message interval for msg with id:{message_id} successfully."
-                )
-            else:
-                self.get_logger().error(
-                    f"Failed to set message interval for msg with id:{message_id}."
-                )
-        except Exception as e:
-            self.get_logger().error(
-                f"Service call failed for msg with id:{message_id}: {e}"
-            )
-
-    def takeoff(self, target_alt: float) -> None:
-        """Makes drone takeoff until it reaches target altitude. Only works if the drone is armed.
-        `takeoff` callback is added using `future.add_done_callback` to handle the response.
-
-        Args:
-            target_alt (float): The target altitude for the takeoff operation in meters..
-
-        Returns:
-            None
-        """
-        self.state = "TAKEOFF"
-        takeoff_req = CommandTOL.Request()
-        takeoff_req.altitude = target_alt
-        future = self.takeoff_cli.call_async(takeoff_req)
-        future.add_done_callback(self.takeoff_callback)
-
-    def takeoff_callback(self, future):
-        """Handles the callback for the takeoff service call. Logs whether the takeoff was initiated successfully,
-        failed, or if the service call itself failed due to an exception.
-
-        Args:
-            future: The Future object that contains the result of the takeoff service call.
-
-        """
-        try:
-            response = future.result()
-            if response.success:
-                self.get_logger().info("Takeoff initiated.")
-            else:
-                self.get_logger().error("Takeoff failed.")
-        except Exception as e:
-            self.get_logger().error(f"Service call failed: {e}")
-
-    def change_mode(self, new_mode: str) -> None:
-        """Sends an asynchronous request to changes the mode of the drone using the SetMode service.
-        `mode_change_callback` callback is added using `future.add_done_callback` to handle the response.
-
-        Args:
-            new_mode (str): The new mode to set for the system.
-            Set to `LAND` to land the drone to its current position.
-
-        Returns:
-            None
-        """
-
+    def change_mode(self, new_mode):
         mode_req = SetMode.Request()
         mode_req.custom_mode = new_mode
         future = self.mode_cli.call_async(mode_req)
-        future.add_done_callback(self.mode_change_callback)
+        rclpy.spin_until_future_complete(self, future)  # wait for response
 
-    def mode_change_callback(self, future):
-        """Handles the result of an asynchronous service call to change the mode of the drone.
-        If the service call is successful, the drone mode is changed successfully. If the service call fails,
-         an error message is logged.
-
-        Args:
-            future: A future object representing the asynchronous execution of the mode change service call.
-        """
-        try:
-            response = future.result()
-            if response.mode_sent:
-                self.get_logger().info(f"Mode changed successfully.")
-            else:
-                self.get_logger().error(f"Failed to change mode.")
-        except Exception as e:
-            self.get_logger().error(f"Service call failed: {e}")
-
-    def arm(self) -> None:
-        """
-        Initiates the arming process for the system.
-
-        Changes the system's state to "ARMING" and sends a request to arm the system.
-        A callback is added to handle the response of the arming request.
-        """
-        self.state = "ARMING"
+    def arm_request(self):
         arm_req = CommandBool.Request()
         arm_req.value = True
         future = self.arm_cli.call_async(arm_req)
-        future.add_done_callback(self.arm_callback)
+        rclpy.spin_until_future_complete(self, future)
 
-    def arm_callback(self, future):
-        """Handles the result of an asynchronous service call to arm the drone. If the service call is successful,
-        the drone is armed and the state is updated to "ARMED". If the service call fails, an error message is logged.
+    def takeoff(self, target_alt):
+        takeoff_req = CommandTOL.Request()
+        takeoff_req.altitude = target_alt
+        future = self.takeoff_cli.call_async(takeoff_req)
+        rclpy.spin_until_future_complete(self, future)
 
-        Args:
-            future: A Future object representing the result of an asynchronous service call.
+    # save the last status message.nanoseconds / 1e9
+    def state_callback(self, msg):
+        self.last_state = msg
+
+        self.get_logger().debug("Mode: {}. Armed: {}".format(msg.mode, msg.armed))
+
+    # save the last local position message gets the rotation as well
+    def local_position_callback(self, msg):
+        self.local_pos = msg
+
+        self.get_logger().debug("Local position: {}".format(msg.pose.position))
+
+        # send a setpoint message to move the vehicle to a local position
+
+    def move_local(
+        self,
+        x: float,
+        y: float,
+        z: float,
+        wait_for_pos: bool = True,
+        error_tolerance: float = 0.1,
+    ):
         """
+        Move the vehicle to a local position. keeping the current rotation.
+        """
+
         try:
-            response = future.result()
-            if response.success:
-                self.get_logger().info("Drone armed.")
-                self.state = "ARMED"
-            else:
-                self.get_logger().error("Arming failed.")
+            x, y, z = float(x), float(y), float(z)
+
         except Exception as e:
-            self.get_logger().error(f"Service call failed: {e}")
+            self.get_logger().error(e)
 
-    def to_local_pose(self, target_pose: Pose3D) -> None:
-        self.target_pub.publish(target_pose.to_msg())
+        # set the header
+        self.last_target_msg.header.stamp = self.get_clock().now().to_msg()
+        # set the position
+        self.last_target_msg.pose.position.x = x
+        self.last_target_msg.pose.position.y = y
+        self.last_target_msg.pose.position.z = z
 
-    def is_guided(self):
+        # keep the current rotation
+        self.last_target_msg.pose.orientation.w = self.local_pos.pose.orientation.w
+        self.last_target_msg.pose.orientation.x = self.local_pos.pose.orientation.x
+        self.last_target_msg.pose.orientation.y = self.local_pos.pose.orientation.y
+        self.last_target_msg.pose.orientation.z = self.local_pos.pose.orientation.z
+
+        # publish the message
+        self.target_pub.publish(self.last_target_msg)
+        self.get_logger().info("Moving to {} {} {}".format(x, y, z))
+
+        if wait_for_pos:
+            self.wait_until_pos_reached(x, y, z, error_tolerance=error_tolerance)
+
+    def wait_until_pos_reached(
+        self,
+        target_x=0.0,
+        target_y=0.0,
+        target_z=0.0,
+        check_last_target_pose=True,
+        error_tolerance=0.5,
+        timeout=10,
+    ):
         """
-        Checks if the drone is currently in guided mode.
-
-        Returns:
-            bool: True if the drone is in guided mode, False otherwise.
+        Wait until the last setpoint message is reached.
+        Only use target_x, target_y, target_z if check_last_target_pose is false. used for the takeoff and other stuff that does not use the last target pose.
         """
-        if not self.drone_state_queue:
-            return
-        return self.drone_state_queue[-1].guided
 
-    def main_loop(self):
+        # for timout seconds, in a loop wait for a new local position message
+        # then check if the position of the drone is within the error tolerance of the target position
+        # if so, return.  Otherwise, keep waiting.
+
+        # target position when the last setpoint message was sent. if false use the user given target position.
+        if check_last_target_pose:
+            target_x = self.last_target_msg.pose.position.x
+            target_y = self.last_target_msg.pose.position.y
+            target_z = self.last_target_msg.pose.position.z
+
+        start_time = self.get_clock().now()  # start of the waiting period
+        last_print_time = start_time
+        while (
+            self.get_clock().now() - start_time
+        ).nanoseconds / 1e9 < timeout:  # wait for timeout seconds
+            rclpy.spin_once(self)
+
+            # wait for a new local position message
+            if (
+                self.local_pos
+            ):  # if there was a message before, wait for a higher timestamp
+                last_stamp = self.local_pos.header.stamp.sec
+                for _ in range(5):  # wait for 5 seconds
+                    rclpy.spin_once(self)
+                    if self.local_pos.header.stamp.sec > last_stamp:
+                        break
+
+            else:  # if there was no message before, just wait for the first one
+                for _ in range(5):
+                    if self.local_pos:
+                        break
+                    rclpy.spin_once(self)
+
+            # check if the position of the drone is within the error tolerance of the target position
+            dx = abs(target_x - self.local_pos.pose.position.x)
+            dy = abs(target_y - self.local_pos.pose.position.y)
+            dz = abs(target_z - self.local_pos.pose.position.z)
+
+            # difference in 3d space
+            dist = (dx ** 2 + dy ** 2 + dz ** 2) ** 0.5
+
+            if dist <= error_tolerance:
+                self.get_logger().info(
+                    "Target position reached. x:{} y:{} z:{} dist:{}".format(
+                        target_x, target_y, target_z, dist
+                    )
+                )
+                return True  # target position reached
+
+            else:
+                # print time left until timeout. only print every second
+                if (self.get_clock().now() - last_print_time).nanoseconds / 1e9 > 1:
+                    time_remaining = (
+                        timeout
+                        - (self.get_clock().now() - start_time).nanoseconds / 1e9
+                    )
+                    self.get_logger().debug(
+                        f"Waiting for target position. x:{target_x} y:{target_y} z:{target_z} "
+                        f"dist:{dist} time remaining:{time_remaining}"
+                    )
+
+                    last_print_time = self.get_clock().now()
+
+        # timeout reached
+        self.get_logger().debug(
+            "Timeout reached. could not reach target position. x:{} y:{} z:{} dist:{} ".format(
+                target_x, target_y, target_z, dist
+            )
+        )
+        return False
+
+    def rotate_to(self, radians):
         """
-        Controls the main loop of the drone state machine. Depending on the current state, the function
-        coordinates various actions such as setting operational mode, arming, taking off, flying, and landing.
-
-        State transitions:
-        - INACTIVE: Sets message intervals, changes mode to GUIDED, and transitions to SETTING_MODE
-        - SETTING_MODE: Checks if the mode is GUIDED and transitions to GUIDED
-        - GUIDED: Arms the drone
-        - ARMED: Initiates the takeoff sequence
-        - TAKEOFF: Waits for the drone to reach the target altitude and transitions to FLYING
-        - FLYING: Executes the current action in the flight plan
-        - LANDING: Monitors the landing process and confirms landing
-
-        Each state represents a critical step in the drone's operation, ensuring smooth transitions
-        and appropriate action execution.
+        Rotate the drone to the given radians.
         """
-        if self.state == "INACTIVE":
-            self.set_all_message_interval()
-            self.change_mode("GUIDED")
-            self.state = "SETTING_MODE"
-        elif self.state == "SETTING_MODE":
-            if self.is_guided():
-                self.state = "GUIDED"
-        elif self.state == "GUIDED":
-            self.arm()
-        elif self.state == "ARMED":
-            self.takeoff(self.flight_plan["takeoff"]["altitude"])
-        elif self.state == "TAKEOFF":
-            # Wait until drone reaches target altitude
-            if self.has_reached_altitude(self.flight_plan["takeoff"]["altitude"]):
-                self.state = "FLYING"
-                self.action_start_time = self.get_clock().now()
-        elif self.state == "FLYING":
-            self.execute_current_action()
-        elif self.state == "LANDING":
-            # Monitor landing process
-            if self.is_landed():
-                self.state = "LANDED"
-                self.get_logger().info("Drone has landed.")
 
-    def has_reached_altitude(self, target_altitude: float, tolerance: float = 0.1):
-        """Determines if the drone has reached `target_altitude` within set `tolerance`.
+        # set the header
+        self.last_target_msg.header.stamp = self.get_clock().now().to_msg()
+        # position of the drone will be the same
+        self.last_target_msg.pose.position.x = self.local_pos.pose.position.x
+        self.last_target_msg.pose.position.y = self.local_pos.pose.position.y
+        self.last_target_msg.pose.position.z = self.local_pos.pose.position.z
 
-        Checks the last recorded position of the drone from the
-        drone_local_pos_queue. If the altitude (z-coordinate) is
-        within the acceptable range, it determines that the drone has reached the `target altitude`.
+        # calculate the rotation quaternion
+        q = tf3d.euler.euler2quat(0.0, 0.0, radians)
+        self.last_target_msg.pose.orientation = Quaternion(
+            w=q[0], x=q[1], y=q[2], z=q[3]
+        )
 
+        # publish the message
+        self.target_pub.publish(self.last_target_msg)
+
+    def wait_for(self, seconds):
+        """
+        Wait for the given number of seconds.
+        """
+
+        self.get_logger().debug("Waiting for {} seconds".format(seconds))
+        start_time = self.get_clock().now()
+        while (self.get_clock().now() - start_time).nanoseconds / 1e9 < seconds:
+            rclpy.spin_once(self)
+        return True
+
+    def do_360(self, step_size=60.0, step_time=5):
+        """
+        rotate the drone 360 degrees.
+        """
+
+        # convert to radians
+        step_size_radians = math.radians(step_size)
+
+        # get the current yaw in radians
+        current_yaw_radians = tf3d.euler.quat2euler(
+            (
+                self.local_pos.pose.orientation.w,
+                self.local_pos.pose.orientation.x,
+                self.local_pos.pose.orientation.y,
+                self.local_pos.pose.orientation.z,
+            )
+        )[2]
+
+        # calculate the number of steps needed to complete a 360 degree rotation
+        total_steps = int(2 * math.pi / step_size_radians)
+        rotated = current_yaw_radians
+
+        for i in range(total_steps + 1):
+            # calculate the target yaw
+            target_yaw_radians = (rotated + step_size_radians) % (2 * math.pi)
+            # convert to quaternion
+            target_q = tf3d.euler.euler2quat(0.0, 0.0, target_yaw_radians)
+            # rotate using rotate_to function
+            self.rotate_to(target_yaw_radians)
+            # wait for the rotation to complete
+            rotated += step_size_radians
+            self.wait_for(step_time)
+
+        # rotate to the original yaw just in case the drone rotated more than 360 degrees
+        self.rotate_to(current_yaw_radians)
+        self.wait_for(step_time)
+
+    def send_landing_target(self, landing_pos):
+        """Sends a landing_target message to mavros assumes position is in local ned frame.
         Args:
-            target_altitude (float): The desired altitude the drone needs to reach.
-            tolerance (float): Acceptable range within the target altitude in meters. (default is 0.1).
-
-        Returns:
-            bool: True if the drone's current altitude is within the tolerance of the target altitude, False otherwise.
+            landing_pos: x y z of the landing_target.
         """
-        if not self.drone_local_pos_queue:
-            return False
-        current_altitude = self.drone_local_pos_queue[-1].position[-1]
-        return abs(current_altitude - target_altitude) < tolerance  # 10 cm tolerance
+        msg_to_send = PoseStamped()
+        msg_to_send.header.stamp = self.get_clock().now().to_msg()
+        msg_to_send.pose.position.x = landing_pos["x"]
+        msg_to_send.pose.position.y = landing_pos["y"]
+        msg_to_send.pose.position.z = landing_pos["z"]
 
-    def is_landed(self):
-        """
-        Determines if the drone has landed by checking its altitude.
+        self.landing_target_pub.publish(msg_to_send)
+        print("sent vision landing message")
 
-        Checks the last recorded position of the drone from the
-        drone_local_pos_queue. If the altitude (z-coordinate) is
-        near zero, it determines that the drone has landed.
+    def start(self):
 
-        Returns:
-            bool: True if the drone's altitude is near zero, False otherwise.
-        """
-        # Implement logic to check if the drone has landed
-        # For simplicity, check if altitude is near zero
-        if not self.drone_local_pos_queue:
-            return False
-        current_altitude = self.drone_local_pos_queue[-1].position[-1]
-        return current_altitude < 0.1
+        # send current detection target to the trt_node. which is landing_pad at start
+        # msg = String()
+        # msg.data = self.current_detection_target
+        # self.get_logger().info('Setting current detection target to {}'.format(msg.data))
+        # self.current_detection_target_pub.publish(msg)
 
-    def execute_current_action(self):
-        """
-        Executes the current action in the flight plan.
+        # some vars to be used during flight
+        takeoff_altitude = 1.0
+        descend_rate = 0.1  # meters
+        descend_threshold = 1.0  # meters
 
-        If the current action index exceeds the length of the flight plan actions,
-        logs that the flight plan is completed. Otherwise, retrieves the current
-        action and its associated parameters and performs the action based on its type.
-        """
-        if self.current_action_index >= len(self.flight_plan_actions):
-            self.get_logger().info("Flight plan completed.")
-            return
+        # wait until system status becomes standby
+        for _ in range(60):
+            self.wait_for_new_status()
+            if self.last_state.system_status == 3:
+                self.get_logger().info("System status: Standby")
+                break
 
-        current_action = self.flight_plan_actions[self.current_action_index]
-        action_params = self.flight_plan[current_action]
+        # request data streams
+        self.request_data_stream(32, 100000)  # local position
+        self.get_logger().info("Requested local position stream")
 
-        if current_action == "hover":
-            self.hover(action_params["duration"])
-        elif current_action == "land":
-            self.land()
+        self.request_data_stream(31, 100000)  # attitude
 
-    def hover(self, duration: float):
-        """Makes the drone keep its pose `hover` for a set duration.
-        When the set duration elapsed the current action index is increased by one.
+        # change mode to GUIDED
+        # self.change_mode('GUIDED')
+        # self.get_logger().info('Requested GUIDED mode')
 
-        Args:
-            duration (float): The amount of time in seconds that the hover action should be maintained.
-        """
-        if self.action_start_time is None:
-            self.action_start_time = self.get_clock().now()
-            self.get_logger().info("Starting hover.")
+        mode_req = SetMode.Request()
+        # https://mavlink.io/en/messages/common.html#MAV_MODE_GUIDED_DISARMED
+        mode_req.base_mode = 88
+        future = self.mode_cli.call_async(mode_req)
+        rclpy.spin_until_future_complete(self, future)
 
-        elapsed_time = (
-            self.get_clock().now() - self.action_start_time
-        ).nanoseconds / 1e9
-        if elapsed_time >= duration:
-            self.get_logger().info("Hover duration completed.")
-            self.current_action_index += 1
-            self.action_start_time = None
+        # try to arm the drone.
+        for _ in range(60):
+            self.arm_request()
+            self.get_logger().info("Arming request sent.")
+            self.wait_for_new_status()
+            if self.last_state.armed:
+                self.get_logger().info("Arming successful")
+                break
         else:
-            # Keep publishing the current position to maintain hover
-            if self.drone_local_pos_queue:
-                current_pose = self.drone_local_pos_queue[-1]
-                self.to_local_pose(current_pose)
+            self.get_logger().error("Failed to arm")
 
-    def land(self):
-        """
-        Initiates the landing process for the drone.
+        ##################################
+        #          start mission         #
+        ##################################
 
-        Logs the initiation of the landing process, changes the mode
-        of the drone to "LAND", updates the state to "LANDING", and
-        increments the current action index.
+        # take off and climb to 3 meters at current location
+        self.takeoff(takeoff_altitude)
+        self.get_logger().info("Takeoff request sent.")
+        self.wait_for(60)
+        # wait for drone to reach desired altitude
+        if self.wait_until_pos_reached(
+            target_x=self.local_pos.pose.position.x,
+            target_y=self.local_pos.pose.position.y,
+            target_z=takeoff_altitude,
+            check_last_target_pose=False,
+        ):
+            self.get_logger().info("Reached target altitude")
+        else:
+            self.get_logger().error("Failed to reach target altitude")
 
-        Returns:
-            None
-        """
-        self.get_logger().info("Initiating landing.")
-        self.change_mode("LAND")
-        self.state = "LANDING"
-        self.current_action_index += 1
+        # ------- Takeoff end ------- #
+
+        # positions the drone will move to.
+        # TODO: Implement a way to load mission from file
+        self.move_local(1, 0, 1)
+        self.move_local(0, 1, 1)
+        self.move_local(-1, 0, 1)
+        self.move_local(0, -1, 1)
+        self.move_local(1, 0, 1)
+        self.move_local(0, 0, 1)
+
+        # ------- landing start ------- #
+
+        # if landing pad was never found land using LAND mode
+        if (
+            self.landing_target_position is None
+        ):  # or self.landing_target_drone_position is None:
+            self.get_logger().warning(
+                "No landing target position received. Landing using RTL mode"
+            )
+            self.change_mode("LAND")
+            self.get_logger().info("Requested LAND mode")
+
+        # if position was found start vision landing
+        else:
+            self.get_logger().info("Vision landing started")
+            self.is_landing_with_vision = True
+
+        while self.is_landing_with_vision:
+            pos_to_send = {
+                "x": self.landing_target_position.pose.position.x,
+                "y": self.landing_target_position.pose.position.y,
+                "z": self.landing_target_position.pose.position.z,
+            }
+
+            self.send_landing_target(pos_to_send)
+            rclpy.spin_once(self)
+
+        ##################################
+        #         Mission end            #
+        ##################################
+
+        while rclpy.ok():
+            rclpy.spin_once(self)
 
 
 def main(args=None):
     rclpy.init(args=args)
     drone_controller_node = DroneControllerNode()
-
-    try:
-        rclpy.spin(drone_controller_node)
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        print(e)
+    rclpy.spin(drone_controller_node)
+    rclpy.shutdown()
 
 
 if __name__ == "__main__":
