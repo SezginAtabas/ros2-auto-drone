@@ -1,1 +1,1 @@
-from ros2_poselib.poselib._pose import Pose
+from ros2_poselib.poselib._pose import Pose3D
