@@ -7,7 +7,7 @@ from geometry_msgs.msg import PoseStamped
 
 
 @dataclass
-class Pose:
+class Pose3D:
     """
     Pose class represents a 3D pose with timestamp, frame ID, position, and rotation.
 
