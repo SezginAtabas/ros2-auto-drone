@@ -17,8 +17,9 @@ from mavros_msgs.srv import (
 
 from collections import deque
 
-import math
-from ros2_poselib.poselib import Pose
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+from ros2_poselib.poselib import Pose3D
 
 
 # gz sim -v4 -r iris_runway.sdf
@@ -97,8 +98,25 @@ class DroneControllerNode(Node):
             (33, 100000),  # global position
         )
 
+        # Flight plan of the drone.
+        # Determines what actions drone will take.
+        self.flight_plan = {
+            "takeoff": {"altitude": 3.0},
+            "hover": {"duration": 5.0},
+            "land": {},
+        }
+        # Flight plan tracking variables
+        self.flight_plan_actions = [
+            action for action in self.flight_plan.keys() if action != "takeoff"
+        ]
+        self.current_action_index = 0
+        self.action_start_time = None
+        self.state = "INACTIVE"
+
+        self.timer = self.create_timer(1.0, self.main_loop)
+
     def local_position_callback(self, msg: PoseStamped) -> None:
-        self.drone_local_pos_queue.append(Pose.from_msg(msg))
+        self.drone_local_pos_queue.append(Pose3D.from_msg(msg))
 
     def state_callback(self, msg: State) -> None:
         self.drone_state_queue.append(msg)
@@ -118,18 +136,27 @@ class DroneControllerNode(Node):
         for msg_id, msg_interval in self.messages_to_request:
             cmd = MessageInterval.Request()
             cmd.message_id = msg_id
-            cmd.message_rate = msg_interval
+            cmd.message_rate = float(msg_interval)
             future = self.message_interval_cli.call_async(cmd)
-            rclpy.spin_until_future_complete(self, future)
+            future.add_done_callback(
+                lambda f, message_id=msg_id: self.message_interval_callback(f, msg_id)
+            )
 
-            if future.result() is not None:
+    def message_interval_callback(self, future, message_id):
+        try:
+            response = future.result()
+            if response.success:
                 self.get_logger().info(
-                    f"Set message interval result for msg with id:{msg_id} - {future.result()}"
+                    f"Set message interval for msg with id:{message_id} successfully."
                 )
             else:
                 self.get_logger().error(
-                    f"Failed to call set_message_interval service for msg with id:{msg_id}"
+                    f"Failed to set message interval for msg with id:{message_id}."
                 )
+        except Exception as e:
+            self.get_logger().error(
+                f"Service call failed for msg with id:{message_id}: {e}"
+            )
 
     def takeoff(self, target_alt: float) -> None:
         """Makes drone takeoff until it reaches target altitude.
@@ -141,10 +168,21 @@ class DroneControllerNode(Node):
         Returns:
             None
         """
+        self.state = "TAKEOFF"
         takeoff_req = CommandTOL.Request()
         takeoff_req.altitude = target_alt
         future = self.takeoff_cli.call_async(takeoff_req)
-        return rclpy.spin_until_future_complete(self, future)
+        future.add_done_callback(self.takeoff_callback)
+
+    def takeoff_callback(self, future):
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info("Takeoff initiated.")
+            else:
+                self.get_logger().error("Takeoff failed.")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")
 
     def change_mode(self, new_mode: str) -> None:
         """Sends an asynchronous request to changes the mode of the drone using the SetMode service.
@@ -156,22 +194,112 @@ class DroneControllerNode(Node):
         Returns:
             None
         """
+
         mode_req = SetMode.Request()
         mode_req.custom_mode = new_mode
         future = self.mode_cli.call_async(mode_req)
-        return rclpy.spin_until_future_complete(self, future)
+        future.add_done_callback(self.mode_change_callback)
+
+    def mode_change_callback(self, future):
+        try:
+            response = future.result()
+            if response.mode_sent:
+                self.get_logger().info(f"Mode changed successfully.")
+            else:
+                self.get_logger().error(f"Failed to change mode.")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")
 
     def arm(self) -> None:
-        """
-        Sends an asynchronous request to arm the drone using the CommandBool service.
-
-        Returns:
-            None
-        """
+        self.state = "ARMING"
         arm_req = CommandBool.Request()
         arm_req.value = True
         future = self.arm_cli.call_async(arm_req)
-        return rclpy.spin_until_future_complete(self, future)
+        future.add_done_callback(self.arm_callback)
+
+    def arm_callback(self, future):
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info("Drone armed.")
+                self.state = "ARMED"
+            else:
+                self.get_logger().error("Arming failed.")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed: {e}")
+
+    def to_local_pose(self, target_pose: Pose3D) -> None:
+        self.target_pub.publish(target_pose.to_msg())
+
+    def main_loop(self):
+        if self.state == "INACTIVE":
+            self.set_all_message_interval()
+            self.arm()
+        elif self.state == "ARMED":
+            self.takeoff(self.flight_plan["takeoff"]["altitude"])
+        elif self.state == "TAKEOFF":
+            # Wait until drone reaches target altitude
+            if self.has_reached_altitude(self.flight_plan["takeoff"]["altitude"]):
+                self.state = "FLYING"
+                self.action_start_time = self.get_clock().now()
+        elif self.state == "FLYING":
+            self.execute_current_action()
+        elif self.state == "LANDING":
+            # Monitor landing process
+            if self.is_landed():
+                self.state = "LANDED"
+                self.get_logger().info("Drone has landed.")
+
+    def has_reached_altitude(self, target_altitude):
+        if not self.drone_local_pos_queue:
+            return False
+        current_altitude = self.drone_local_pos_queue[-1].position[-1]
+        return abs(current_altitude - target_altitude) < 0.1  # 10 cm tolerance
+
+    def is_landed(self):
+        # Implement logic to check if the drone has landed
+        # For simplicity, check if altitude is near zero
+        if not self.drone_local_pos_queue:
+            return False
+        current_altitude = self.drone_local_pos_queue[-1].position[-1]
+        return current_altitude < 0.1
+
+    def execute_current_action(self):
+        if self.current_action_index >= len(self.flight_plan_actions):
+            self.get_logger().info("Flight plan completed.")
+            return
+
+        current_action = self.flight_plan_actions[self.current_action_index]
+        action_params = self.flight_plan[current_action]
+
+        if current_action == "hover":
+            self.hover(action_params["duration"])
+        elif current_action == "land":
+            self.land()
+
+    def hover(self, duration):
+        if self.action_start_time is None:
+            self.action_start_time = self.get_clock().now()
+            self.get_logger().info("Starting hover.")
+
+        elapsed_time = (
+            self.get_clock().now() - self.action_start_time
+        ).nanoseconds / 1e9
+        if elapsed_time >= duration:
+            self.get_logger().info("Hover duration completed.")
+            self.current_action_index += 1
+            self.action_start_time = None
+        else:
+            # Keep publishing the current position to maintain hover
+            if self.drone_local_pos_queue:
+                current_pose = self.drone_local_pos_queue[-1]
+                self.to_local_pose(current_pose)
+
+    def land(self):
+        self.get_logger().info("Initiating landing.")
+        self.change_mode("LAND")
+        self.state = "LANDING"
+        self.current_action_index += 1
 
 
 def main(args=None):
