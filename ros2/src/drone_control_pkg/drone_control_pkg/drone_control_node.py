@@ -116,9 +116,23 @@ class DroneControllerNode(Node):
         self.timer = self.create_timer(1.0, self.main_loop)
 
     def local_position_callback(self, msg: PoseStamped) -> None:
+        """Creates a `Pose3D` object from the local position message received from the drone then
+        appends it to `drone_local_pos_queue`.
+
+        Args:
+            msg (PoseStamped): The pose message received from the drone.
+            This contains the position and orientation information of the
+            drone in a ROS standard PoseStamped message format.
+        """
         self.drone_local_pos_queue.append(Pose3D.from_msg(msg))
 
     def state_callback(self, msg: State) -> None:
+        """Appends the received state message to `drone_state_queue`.
+        This state data is used to check if the drone is armed, landed, etc.
+
+        Args:
+            msg (State): The current state of the drone.
+        """
         self.drone_state_queue.append(msg)
 
     def set_all_message_interval(self) -> None:
@@ -231,9 +245,20 @@ class DroneControllerNode(Node):
     def to_local_pose(self, target_pose: Pose3D) -> None:
         self.target_pub.publish(target_pose.to_msg())
 
+    def is_guided(self):
+        if not self.drone_state_queue:
+            return
+        return self.drone_state_queue[-1].guided
+
     def main_loop(self):
         if self.state == "INACTIVE":
             self.set_all_message_interval()
+            self.change_mode("GUIDED")
+            self.state = "SETTING_MODE"
+        elif self.state == "SETTING_MODE":
+            if self.is_guided():
+                self.state = "GUIDED"
+        elif self.state == "GUIDED":
             self.arm()
         elif self.state == "ARMED":
             self.takeoff(self.flight_plan["takeoff"]["altitude"])
@@ -296,6 +321,16 @@ class DroneControllerNode(Node):
                 self.to_local_pose(current_pose)
 
     def land(self):
+        """
+        Initiates the landing process for the drone.
+
+        Logs the initiation of the landing process, changes the mode
+        of the drone to "LAND", updates the state to "LANDING", and
+        increments the current action index.
+
+        Returns:
+            None
+        """
         self.get_logger().info("Initiating landing.")
         self.change_mode("LAND")
         self.state = "LANDING"
@@ -312,9 +347,6 @@ def main(args=None):
         pass
     except Exception as e:
         print(e)
-    finally:
-        drone_controller_node.destroy_node()
-        rclpy.shutdown()
 
 
 if __name__ == "__main__":
