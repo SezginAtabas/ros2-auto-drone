@@ -32,6 +32,11 @@ from ros2_poselib.poselib import Pose3D
 
 class DroneControllerNode(Node):
     def __init__(self):
+        """
+        The `DroneControllerNode` class is responsible for controlling the behavior of a drone using ROS2.
+        It handles communication via clients, publishers, and subscribers for tasks such as state monitoring,
+        mode changes, takeoff, arming, and interval settings for MavLink messages.
+        """
         super().__init__("drone_controller_node")
 
         # <------ Variables ------>
@@ -157,6 +162,14 @@ class DroneControllerNode(Node):
             )
 
     def message_interval_callback(self, future, message_id):
+        """Handles the callback for the set_message_interval service call. Logs whether the message interval
+        request was successful.
+
+        Args:
+            future: The future object representing asynchronous result of a service call.
+            message_id: The identifier of the message for which the interval is set.
+
+        """
         try:
             response = future.result()
             if response.success:
@@ -173,11 +186,11 @@ class DroneControllerNode(Node):
             )
 
     def takeoff(self, target_alt: float) -> None:
-        """Makes drone takeoff until it reaches target altitude.
-        Drone needs the armed for this to work.
+        """Makes drone takeoff until it reaches target altitude. Only works if the drone is armed.
+        `takeoff` callback is added using `future.add_done_callback` to handle the response.
 
         Args:
-            target_alt (float): The target altitude for the takeoff operation.
+            target_alt (float): The target altitude for the takeoff operation in meters..
 
         Returns:
             None
@@ -189,6 +202,13 @@ class DroneControllerNode(Node):
         future.add_done_callback(self.takeoff_callback)
 
     def takeoff_callback(self, future):
+        """Handles the callback for the takeoff service call. Logs whether the takeoff was initiated successfully,
+        failed, or if the service call itself failed due to an exception.
+
+        Args:
+            future: The Future object that contains the result of the takeoff service call.
+
+        """
         try:
             response = future.result()
             if response.success:
@@ -200,6 +220,7 @@ class DroneControllerNode(Node):
 
     def change_mode(self, new_mode: str) -> None:
         """Sends an asynchronous request to changes the mode of the drone using the SetMode service.
+        `mode_change_callback` callback is added using `future.add_done_callback` to handle the response.
 
         Args:
             new_mode (str): The new mode to set for the system.
@@ -215,6 +236,13 @@ class DroneControllerNode(Node):
         future.add_done_callback(self.mode_change_callback)
 
     def mode_change_callback(self, future):
+        """Handles the result of an asynchronous service call to change the mode of the drone.
+        If the service call is successful, the drone mode is changed successfully. If the service call fails,
+         an error message is logged.
+
+        Args:
+            future: A future object representing the asynchronous execution of the mode change service call.
+        """
         try:
             response = future.result()
             if response.mode_sent:
@@ -225,6 +253,12 @@ class DroneControllerNode(Node):
             self.get_logger().error(f"Service call failed: {e}")
 
     def arm(self) -> None:
+        """
+        Initiates the arming process for the system.
+
+        Changes the system's state to "ARMING" and sends a request to arm the system.
+        A callback is added to handle the response of the arming request.
+        """
         self.state = "ARMING"
         arm_req = CommandBool.Request()
         arm_req.value = True
@@ -232,6 +266,12 @@ class DroneControllerNode(Node):
         future.add_done_callback(self.arm_callback)
 
     def arm_callback(self, future):
+        """Handles the result of an asynchronous service call to arm the drone. If the service call is successful,
+        the drone is armed and the state is updated to "ARMED". If the service call fails, an error message is logged.
+
+        Args:
+            future: A Future object representing the result of an asynchronous service call.
+        """
         try:
             response = future.result()
             if response.success:
@@ -246,11 +286,33 @@ class DroneControllerNode(Node):
         self.target_pub.publish(target_pose.to_msg())
 
     def is_guided(self):
+        """
+        Checks if the drone is currently in guided mode.
+
+        Returns:
+            bool: True if the drone is in guided mode, False otherwise.
+        """
         if not self.drone_state_queue:
             return
         return self.drone_state_queue[-1].guided
 
     def main_loop(self):
+        """
+        Controls the main loop of the drone state machine. Depending on the current state, the function
+        coordinates various actions such as setting operational mode, arming, taking off, flying, and landing.
+
+        State transitions:
+        - INACTIVE: Sets message intervals, changes mode to GUIDED, and transitions to SETTING_MODE
+        - SETTING_MODE: Checks if the mode is GUIDED and transitions to GUIDED
+        - GUIDED: Arms the drone
+        - ARMED: Initiates the takeoff sequence
+        - TAKEOFF: Waits for the drone to reach the target altitude and transitions to FLYING
+        - FLYING: Executes the current action in the flight plan
+        - LANDING: Monitors the landing process and confirms landing
+
+        Each state represents a critical step in the drone's operation, ensuring smooth transitions
+        and appropriate action execution.
+        """
         if self.state == "INACTIVE":
             self.set_all_message_interval()
             self.change_mode("GUIDED")
@@ -275,13 +337,36 @@ class DroneControllerNode(Node):
                 self.state = "LANDED"
                 self.get_logger().info("Drone has landed.")
 
-    def has_reached_altitude(self, target_altitude):
+    def has_reached_altitude(self, target_altitude: float, tolerance: float = 0.1):
+        """Determines if the drone has reached `target_altitude` within set `tolerance`.
+
+        Checks the last recorded position of the drone from the
+        drone_local_pos_queue. If the altitude (z-coordinate) is
+        within the acceptable range, it determines that the drone has reached the `target altitude`.
+
+        Args:
+            target_altitude (float): The desired altitude the drone needs to reach.
+            tolerance (float): Acceptable range within the target altitude in meters. (default is 0.1).
+
+        Returns:
+            bool: True if the drone's current altitude is within the tolerance of the target altitude, False otherwise.
+        """
         if not self.drone_local_pos_queue:
             return False
         current_altitude = self.drone_local_pos_queue[-1].position[-1]
-        return abs(current_altitude - target_altitude) < 0.1  # 10 cm tolerance
+        return abs(current_altitude - target_altitude) < tolerance  # 10 cm tolerance
 
     def is_landed(self):
+        """
+        Determines if the drone has landed by checking its altitude.
+
+        Checks the last recorded position of the drone from the
+        drone_local_pos_queue. If the altitude (z-coordinate) is
+        near zero, it determines that the drone has landed.
+
+        Returns:
+            bool: True if the drone's altitude is near zero, False otherwise.
+        """
         # Implement logic to check if the drone has landed
         # For simplicity, check if altitude is near zero
         if not self.drone_local_pos_queue:
@@ -290,6 +375,13 @@ class DroneControllerNode(Node):
         return current_altitude < 0.1
 
     def execute_current_action(self):
+        """
+        Executes the current action in the flight plan.
+
+        If the current action index exceeds the length of the flight plan actions,
+        logs that the flight plan is completed. Otherwise, retrieves the current
+        action and its associated parameters and performs the action based on its type.
+        """
         if self.current_action_index >= len(self.flight_plan_actions):
             self.get_logger().info("Flight plan completed.")
             return
@@ -302,7 +394,13 @@ class DroneControllerNode(Node):
         elif current_action == "land":
             self.land()
 
-    def hover(self, duration):
+    def hover(self, duration: float):
+        """Makes the drone keep its pose `hover` for a set duration.
+        When the set duration elapsed the current action index is increased by one.
+
+        Args:
+            duration (float): The amount of time in seconds that the hover action should be maintained.
+        """
         if self.action_start_time is None:
             self.action_start_time = self.get_clock().now()
             self.get_logger().info("Starting hover.")
