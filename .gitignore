@@ -32,6 +32,7 @@ MANIFEST
 # ROS stuff
 devel/
 logs/
-build/
 bin/
 lib/
+install/
+log/
