@@ -15,6 +15,10 @@
 
 class DronePoseNode : public rclcpp::Node {
 private:
+
+  rclcpp::CallbackGroup::SharedPtr reentrant_callback_group_;
+  rclcpp::SubscriptionOptions sub_options_;
+
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
       publisher_;
 
