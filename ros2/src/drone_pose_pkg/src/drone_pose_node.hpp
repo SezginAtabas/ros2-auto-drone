@@ -4,18 +4,18 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/subscription.hpp>
 
-
 /**
  * @class DronePoseNode
- * @brief A ROS2 node for handling the pose of a drone using PoseWithCovarianceStamped messages.
+ * @brief A ROS2 node for handling the pose of a drone using
+ * PoseWithCovarianceStamped messages.
  *
- * The DronePoseNode class subscribes to a topic to receive PoseWithCovarianceStamped messages from the camera,
- * processes them, and republishes the received pose data to a mavros topic.
+ * The DronePoseNode class subscribes to a topic to receive
+ * PoseWithCovarianceStamped messages from the camera, processes them, and
+ * republishes the received pose data to a mavros topic.
  */
 
 class DronePoseNode : public rclcpp::Node {
-private:
-
+ private:
   rclcpp::CallbackGroup::SharedPtr reentrant_callback_group_;
   rclcpp::SubscriptionOptions sub_options_;
 
@@ -25,8 +25,9 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
       subscriber_;
 
-  void _pose_data_callback(const geometry_msgs::msg::PoseWithCovarianceStamped & msg) const;
+  void _pose_data_callback(
+      const geometry_msgs::msg::PoseWithCovarianceStamped& msg) const;
 
-public:
+ public:
   DronePoseNode();
 };
