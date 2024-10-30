@@ -6,7 +6,6 @@
 #include <rclcpp/client.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <rclcpp/time.hpp>
 
 #include "mavros_msgs/srv/detail/set_mode__struct.hpp"
 
@@ -19,12 +18,14 @@ class DroneControllerNode : public rclcpp::Node {
  public:
   DroneControllerNode();
 
-  void change_mode(std::string mode);
+  void change_mode(const std::string& mode) const;
   void change_mode_response_callback(
-      rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture future);
+      const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture& future)
+      const;
 
   void request_message_interval(uint32_t mavlink_message_id,
-                                float nanosec_send_rate);
+                                float message_rate) const;
   void message_interval_response_callback(
-      rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture future);
+      const rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture&
+          future) const;
 };
