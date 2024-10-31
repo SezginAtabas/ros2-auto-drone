@@ -1,7 +1,6 @@
 **.vscode
 *.idea
 *.cache
-.clang-format
 
 # Python
 # Byte-compiled / optimized / DLL files
