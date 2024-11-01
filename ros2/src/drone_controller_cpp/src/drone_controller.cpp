@@ -1,6 +1,7 @@
 
 #include "drone_controller.hpp"
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/srv/command_bool.hpp>
 #include <mavros_msgs/srv/message_interval.hpp>
 #include <mavros_msgs/srv/set_mode.hpp>
@@ -23,13 +24,50 @@
  */
 DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
 {
+  // Service Clients
   mode_client_ = create_client<mavros_msgs::srv::SetMode>("/mavros/set_mode");
   stream_rate_client_ =
     create_client<mavros_msgs::srv::MessageInterval>("/mavros/set_message_interval");
   arm_client_ = create_client<mavros_msgs::srv::CommandBool>("/mavros/cmd/arming");
+  takeoff_client_ = create_client<mavros_msgs::srv::CommandTOL>("/mavros/cmd/takeoff");
 
-  service_timer_ =
-    this->create_wall_timer(std::chrono::milliseconds(1000), [this] { Arm(); });
+  // Publishers
+  local_pose_pub_ =
+    create_publisher<geometry_msgs::msg::PoseStamped>("/local_pose", rclcpp::SensorDataQoS());
+  // Subscribers
+  local_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+    "/local_pose", rclcpp::SensorDataQoS(),
+    [this](const geometry_msgs::msg::PoseStamped & msg) { LocalPoseCallback(msg); });
+
+  update_timer_ =
+    this->create_wall_timer(std::chrono::milliseconds(100), [this] { Takeoff(10.0); });
+}
+
+void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStamped & msg) const
+{
+  RCLCPP_INFO(
+    this->get_logger(), "Local pose received x:%f y:%f z:%f", msg.pose.position.x,
+    msg.pose.position.y, msg.pose.position.z);
+}
+
+void DroneControllerNode::Takeoff(float altitude) const
+{
+  const auto request = std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
+  request->altitude = altitude;
+  auto result = takeoff_client_->async_send_request(
+    request, [this](rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) {
+      this->TakeoffCallback(future);
+    });
+}
+
+void DroneControllerNode::TakeoffCallback(
+  rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) const
+{
+  if (const auto & response = future.get(); response->success) {
+    RCLCPP_INFO(this->get_logger(), "SUCCESS");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+  }
 }
 
 void DroneControllerNode::Arm() const
@@ -52,12 +90,9 @@ void DroneControllerNode::ArmCallback(
   }
 }
 
-void DroneControllerNode::ServiceTimerCallback() const
+void DroneControllerNode::UpdateTimerCallback() const
 {
-  RCLCPP_INFO(this->get_logger(), "DroneController ServiceTimerCallback.");
-  std::uint32_t message_id = 32;
-  float message_rate = 100000;
-  SetMessageInterval(message_id, message_rate);
+  // TODO: MAKE THIS CALLBACK CONTROL THE DRONE
 }
 
 /**

@@ -14,20 +14,18 @@
  * republishes the received pose data to a mavros topic.
  */
 
-class DronePoseNode : public rclcpp::Node {
- private:
+class DronePoseNode : public rclcpp::Node
+{
+private:
   rclcpp::CallbackGroup::SharedPtr reentrant_callback_group_;
   rclcpp::SubscriptionOptions sub_options_;
 
-  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
-      publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr publisher_;
 
-  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
-      subscriber_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr subscriber_;
 
-  void _pose_data_callback(
-      const geometry_msgs::msg::PoseWithCovarianceStamped& msg) const;
+  void PoseDataCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & msg) const;
 
- public:
+public:
   DronePoseNode();
 };

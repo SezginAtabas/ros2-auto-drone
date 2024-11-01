@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(mavros_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 ############################
 # CPP Binary Block [BEGIN] #
@@ -25,6 +26,7 @@ add_executable(${RCLCPP_LOCAL_BINARY_NAME}
 ament_target_dependencies(${RCLCPP_LOCAL_BINARY_NAME}
         rclcpp
         mavros_msgs
+        geometry_msgs
 
 )
 
