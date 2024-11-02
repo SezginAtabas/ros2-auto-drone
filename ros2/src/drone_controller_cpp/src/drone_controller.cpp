@@ -33,16 +33,24 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
 
   // Publishers
   local_pose_pub_ =
-    create_publisher<geometry_msgs::msg::PoseStamped>("/local_pose", rclcpp::SensorDataQoS());
+    create_publisher<geometry_msgs::msg::PoseStamped>("/mavros/setpoint_position/local", rclcpp::SensorDataQoS());
   // Subscribers
   local_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-    "/local_pose", rclcpp::SensorDataQoS(),
+    "/mavros/local_position/pose", rclcpp::SensorDataQoS(),
     [this](const geometry_msgs::msg::PoseStamped & msg) { LocalPoseCallback(msg); });
 
   update_timer_ =
     this->create_wall_timer(std::chrono::milliseconds(100), [this] { Takeoff(10.0); });
 }
 
+/**
+ * @brief Callback function for receiving local pose information.
+ *
+ * This method is triggered each time a new PoseStamped message is received
+ * on the local pose subscriber topic. It logs the position (x, y, z) of the drone.
+ *
+ * @param msg The PoseStamped message containing the current local pose of the drone.
+ */
 void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStamped & msg) const
 {
   RCLCPP_INFO(
@@ -50,6 +58,14 @@ void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStampe
     msg.pose.position.y, msg.pose.position.z);
 }
 
+/**
+ * @brief Initiates the takeoff procedure to a specified altitude.
+ *
+ * This method sends a request to the MAVROS CommandTOL service to command the drone
+ * to take off and reach the specified altitude.
+ *
+ * @param altitude The target altitude to reach upon takeoff, in meters.
+ */
 void DroneControllerNode::Takeoff(float altitude) const
 {
   const auto request = std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
@@ -60,6 +76,15 @@ void DroneControllerNode::Takeoff(float altitude) const
     });
 }
 
+/**
+ * @brief Callback function for the takeoff command.
+ *
+ * This function is called when the takeoff request is completed. It checks
+ * the response from the service and logs whether the takeoff command was
+ * successful or if the service is still in progress.
+ *
+ * @param future The future object containing the response from the CommandTOL service.
+ */
 void DroneControllerNode::TakeoffCallback(
   rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) const
 {
@@ -70,6 +95,13 @@ void DroneControllerNode::TakeoffCallback(
   }
 }
 
+/**
+ * @brief Sends a request to arm the drone.
+ *
+ * This method creates a request to arm the drone and sends it asynchronously
+ * using the arm_client_ service. When the request completes, the ArmCallback
+ * method is called to handle the result.
+ */
 void DroneControllerNode::Arm() const
 {
   const auto request = std::make_shared<mavros_msgs::srv::CommandBool::Request>();
@@ -80,6 +112,16 @@ void DroneControllerNode::Arm() const
     });
 }
 
+/**
+ * @brief Callback function for the arming command.
+ *
+ * This callback is called when the arming command sent to the MAVROS service
+ * receives a response. It checks the success status of the response and logs
+ * the appropriate message.
+ *
+ * @param future The shared future object containing the response from the
+ *               arming service.
+ */
 void DroneControllerNode::ArmCallback(
   rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedFuture future) const
 {
