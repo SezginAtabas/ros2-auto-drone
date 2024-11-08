@@ -14,6 +14,16 @@
 #include "mavros_msgs/srv/detail/command_bool__struct.hpp"
 #include "mavros_msgs/srv/detail/set_mode__struct.hpp"
 
+enum DroneState
+{
+  DroneGuidedState,
+  DroneArmedState,
+  DroneTakeoffState,
+  DroneSearchState,
+  DroneFollowState,
+  DroneLandingState,
+};
+
 class DroneControllerNode : public rclcpp::Node
 {
 private:
@@ -26,12 +36,21 @@ private:
   rclcpp::TimerBase::SharedPtr update_timer_;
   void UpdateTimerCallback() const;
 
+  DroneState drone_state_;
+
 public:
   DroneControllerNode();
 
+  static float GetTakeoffAltitude();
+  static float GetFollowDistance();
+
+  DroneState GetDroneState() const;
+  void SetDroneState(DroneState state);
+  void UpdateDroneState(DroneState target_state);
+
+
   // Publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_pub_;
-
   // Subscribers
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_sub_;
 
@@ -39,7 +58,7 @@ public:
   void LocalPoseCallback(const geometry_msgs::msg::PoseStamped & msg) const;
 
   // Service functions
-  void SetMode(const std::string & mode) const;
+  void SetMode(const std::string & mode);
   void SetMessageInterval(uint32_t mavlink_message_id, float message_rate) const;
   void Arm() const;
   void Takeoff(float altitude) const;
@@ -48,7 +67,8 @@ public:
   void TakeoffCallback(rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) const;
   void ArmCallback(rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedFuture future) const;
   void SetModeCallback(
-    const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture & future) const;
+    const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture & future,
+    const std::string & mode);
   void MessageIntervalCallback(
     const rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture & future) const;
 };

@@ -32,16 +32,21 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
   takeoff_client_ = create_client<mavros_msgs::srv::CommandTOL>("/mavros/cmd/takeoff");
 
   // Publishers
-  local_pose_pub_ =
-    create_publisher<geometry_msgs::msg::PoseStamped>("/mavros/setpoint_position/local", rclcpp::SensorDataQoS());
+  local_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
+    "/mavros/setpoint_position/local", rclcpp::SensorDataQoS());
   // Subscribers
   local_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     "/mavros/local_position/pose", rclcpp::SensorDataQoS(),
     [this](const geometry_msgs::msg::PoseStamped & msg) { LocalPoseCallback(msg); });
 
   update_timer_ =
-    this->create_wall_timer(std::chrono::milliseconds(100), [this] { Takeoff(10.0); });
+    this->create_wall_timer(std::chrono::milliseconds(100), [this] { UpdateTimerCallback(); });
+
+  UpdateDroneState(DroneGuidedState);
 }
+
+float DroneControllerNode::GetFollowDistance() { return 1.5; }
+float DroneControllerNode::GetTakeoffAltitude() { return 3.0; }
 
 /**
  * @brief Callback function for receiving local pose information.
@@ -66,7 +71,7 @@ void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStampe
  *
  * @param altitude The target altitude to reach upon takeoff, in meters.
  */
-void DroneControllerNode::Takeoff(float altitude) const
+void DroneControllerNode::Takeoff(const float altitude) const
 {
   const auto request = std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
   request->altitude = altitude;
@@ -89,7 +94,7 @@ void DroneControllerNode::TakeoffCallback(
   rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) const
 {
   if (const auto & response = future.get(); response->success) {
-    RCLCPP_INFO(this->get_logger(), "SUCCESS");
+    RCLCPP_INFO(this->get_logger(), "Takeoff Success.");
   } else {
     RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
   }
@@ -126,16 +131,42 @@ void DroneControllerNode::ArmCallback(
   rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedFuture future) const
 {
   if (const auto & response = future.get(); response->success) {
-    RCLCPP_INFO(this->get_logger(), "SUCCESS");
+    RCLCPP_INFO(this->get_logger(), "DRONE ARMED, Starting Takeoff ...");
+    Takeoff(GetTakeoffAltitude());
   } else {
     RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
   }
 }
 
-void DroneControllerNode::UpdateTimerCallback() const
+DroneState DroneControllerNode::GetDroneState() const { return this->drone_state_; }
+
+void DroneControllerNode::SetDroneState(DroneState state) { this->drone_state_ = state; }
+
+void DroneControllerNode::UpdateDroneState(const DroneState target_state)
 {
-  // TODO: MAKE THIS CALLBACK CONTROL THE DRONE
+  switch (target_state) {
+    case DroneGuidedState:
+      RCLCPP_INFO(this->get_logger(), "DroneGuided");
+      SetDroneState(DroneGuidedState);
+      SetMode("GUIDED");
+    case DroneArmedState:
+      RCLCPP_INFO(this->get_logger(), "DroneArmed");
+      SetDroneState(DroneArmedState);
+      Arm();
+    case DroneTakeoffState:
+      RCLCPP_INFO(this->get_logger(), "DroneTakeoff");
+      SetDroneState(DroneTakeoffState);
+      Takeoff(GetTakeoffAltitude());
+    case DroneSearchState:
+      RCLCPP_INFO(this->get_logger(), "DroneSearch");
+    case DroneFollowState:
+      RCLCPP_INFO(this->get_logger(), "DroneFollow");
+    case DroneLandingState:
+      RCLCPP_INFO(this->get_logger(), "DroneLanding");
+  }
 }
+
+void DroneControllerNode::UpdateTimerCallback() const {}
 
 /**
  * Changes the mode of the drone by sending a request to the relevant service.
@@ -146,13 +177,13 @@ void DroneControllerNode::UpdateTimerCallback() const
  *       request to the MAVROS service, and it binds a callback function
  *       to handle the service response.
  */
-void DroneControllerNode::SetMode(const std::string & mode) const
+void DroneControllerNode::SetMode(const std::string & mode)
 {
   const auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
   request->custom_mode = mode;
   auto result = mode_client_->async_send_request(
-    request, [this](rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture future) {
-      this->SetModeCallback(future);
+    request, [this, mode](rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture future) {
+      this->SetModeCallback(future, mode);
     });
 }
 
@@ -192,12 +223,17 @@ void DroneControllerNode::SetMessageInterval(
  *
  * @param future A shared future object representing the asynchronous
  *               result of the SetMode service request.
+ * @param mode Requested mode of the drone.
  */
 void DroneControllerNode::SetModeCallback(
-  const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture & future) const
+  const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture & future, const std::string & mode)
 {
   if (const auto & response = future.get(); response->mode_sent) {
-    RCLCPP_INFO(this->get_logger(), "SUCCESS");
+    RCLCPP_INFO(this->get_logger(), "Mode changed successfully.");
+    if (mode == "GUIDED") {
+      RCLCPP_INFO(this->get_logger(), "Arming drone ...");
+      UpdateDroneState(DroneArmedState);
+    }
   } else {
     RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
   }
