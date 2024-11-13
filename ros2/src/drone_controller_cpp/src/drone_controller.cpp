@@ -207,11 +207,13 @@ geometry_msgs::msg::PointStamped DroneControllerNode::GetFollowPosition()
  */
 bool DroneControllerNode::CheckForValidTarget()
 {
-  static const auto follow_constraints{15, 15, 100};
-  if (const auto auto current_point = GetFollowPosition();
-      current_point.point.x < follow_constraints[0] &&
-      current_point.point.y < follow_constraints[1] &&
-      current_point.point.z < follow_constraints[2]) {
+  static const double constraint_x = 10;
+  static const double constraint_y = 10;
+  static const double constraint_z = 100;
+
+  if (const auto current_point = GetFollowPosition(); current_point.point.x < constraint_x &&
+                                                      current_point.point.y < constraint_y &&
+                                                      current_point.point.z < constraint_z) {
     return true;
   }
   return false;
