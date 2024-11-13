@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/srv/command_bool.hpp>
 #include <mavros_msgs/srv/command_tol.hpp>
@@ -16,6 +17,7 @@
 
 enum DroneState
 {
+  DroneOffState,
   DroneGuidedState,
   DroneArmedState,
   DroneTakeoffState,
@@ -37,6 +39,8 @@ private:
   void UpdateTimerCallback() const;
 
   DroneState drone_state_;
+  // position drone will follow, distance relative to the drone
+  geometry_msgs::msg::PointStamped follow_position_;
 
 public:
   DroneControllerNode();
@@ -48,14 +52,18 @@ public:
   void SetDroneState(DroneState state);
   void UpdateDroneState(DroneState target_state);
 
+  geometry_msgs::msg::PointStamped GetFollowPosition();
+  bool CheckForValidTarget();
 
   // Publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_pub_;
   // Subscribers
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr follow_position_sub_;
 
   // Topic callbacks
   void LocalPoseCallback(const geometry_msgs::msg::PoseStamped & msg) const;
+  void FollowPositionCallback(const geometry_msgs::msg::PointStamped & msg) const;
 
   // Service functions
   void SetMode(const std::string & mode);

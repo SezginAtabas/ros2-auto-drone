@@ -39,9 +39,16 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
     "/mavros/local_position/pose", rclcpp::SensorDataQoS(),
     [this](const geometry_msgs::msg::PoseStamped & msg) { LocalPoseCallback(msg); });
 
+  follow_position_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+    "/my_drone/target_position", rclcpp::SensorDataQoS(),
+    [this](const geometry_msgs::msg::PointStamped & msg) { FollowPositionCallback(msg); });
+
   update_timer_ =
     this->create_wall_timer(std::chrono::milliseconds(100), [this] { UpdateTimerCallback(); });
 
+  // prevent initialization warning.
+  drone_state_ = DroneOffState;
+  // Start off the state machine.
   UpdateDroneState(DroneGuidedState);
 }
 
@@ -142,9 +149,19 @@ DroneState DroneControllerNode::GetDroneState() const { return this->drone_state
 
 void DroneControllerNode::SetDroneState(DroneState state) { this->drone_state_ = state; }
 
+/**
+ * @brief Updates the drone's state based on the provided target state.
+ *
+ * The drone's behavior and state are updated according to the specified target state,
+ * invoking state-specific actions such as arming the drone, taking off, or setting the drone's mode.
+ *
+ * @param target_state The desired state to transition the drone to, represented by an enum value of DroneState.
+ */
 void DroneControllerNode::UpdateDroneState(const DroneState target_state)
 {
   switch (target_state) {
+    case DroneOffState:
+      RCLCPP_INFO(this->get_logger(), "Drone Off");
     case DroneGuidedState:
       RCLCPP_INFO(this->get_logger(), "DroneGuided");
       SetDroneState(DroneGuidedState);
@@ -164,6 +181,40 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state)
     case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneLanding");
   }
+}
+
+/**
+ * @brief Retrieves the current follow position of the drone.
+ *
+ * This function returns the stored follow position encapsulated in a PointStamped message,
+ * which contains the position coordinates and associated timestamp.
+ *
+ * @return The current follow position as a geometry_msgs::msg::PointStamped.
+ */
+geometry_msgs::msg::PointStamped DroneControllerNode::GetFollowPosition()
+{
+  return follow_position_;
+}
+
+/**
+ * @brief Checks if the current follow position is within valid constraints.
+ *
+ * This method retrieves the current follow position and verifies if the x, y, and z coordinates
+ * are all below the predefined constraints of 15, 15, and 100 respectively. If so, it returns true,
+ * indicating that the target position is valid, otherwise returns false.
+ *
+ * @return true if the current follow position is within valid constraints, false otherwise.
+ */
+bool DroneControllerNode::CheckForValidTarget()
+{
+  static const auto follow_constraints{15, 15, 100};
+  if (const auto auto current_point = GetFollowPosition();
+      current_point.point.x < follow_constraints[0] &&
+      current_point.point.y < follow_constraints[1] &&
+      current_point.point.z < follow_constraints[2]) {
+    return true;
+  }
+  return false;
 }
 
 void DroneControllerNode::UpdateTimerCallback() const {}
