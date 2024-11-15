@@ -1,6 +1,7 @@
 **.vscode
 *.idea
 *.cache
+/compile_commands.json
 
 # Python
 # Byte-compiled / optimized / DLL files
@@ -38,3 +39,4 @@ bin/
 lib/
 install/
 log/
+

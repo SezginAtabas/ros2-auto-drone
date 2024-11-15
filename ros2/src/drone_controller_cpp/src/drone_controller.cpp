@@ -1,6 +1,7 @@
 
 #include "drone_controller.hpp"
 
+#include <geometry_msgs/msg/detail/point_stamped__struct.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/srv/command_bool.hpp>
 #include <mavros_msgs/srv/message_interval.hpp>
@@ -54,6 +55,12 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
 
 float DroneControllerNode::GetFollowDistance() { return 1.5; }
 float DroneControllerNode::GetTakeoffAltitude() { return 3.0; }
+
+void DroneControllerNode::FollowPositionCallback(const geometry_msgs::msg::PointStamped & msg) const
+{
+  RCLCPP_INFO(
+    this->get_logger(), "Follow point: x:%f, y:%f, z:%f", msg.point.x, msg.point.y, msg.point.z);
+}
 
 /**
  * @brief Callback function for receiving local pose information.
@@ -147,7 +154,7 @@ void DroneControllerNode::ArmCallback(
 
 DroneState DroneControllerNode::GetDroneState() const { return this->drone_state_; }
 
-void DroneControllerNode::SetDroneState(DroneState state) { this->drone_state_ = state; }
+void DroneControllerNode::SetDroneState(const DroneState state) { this->drone_state_ = state; }
 
 /**
  * @brief Updates the drone's state based on the provided target state.
@@ -162,24 +169,31 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state)
   switch (target_state) {
     case DroneOffState:
       RCLCPP_INFO(this->get_logger(), "Drone Off");
+      break;
     case DroneGuidedState:
       RCLCPP_INFO(this->get_logger(), "DroneGuided");
       SetDroneState(DroneGuidedState);
       SetMode("GUIDED");
+      break;
     case DroneArmedState:
       RCLCPP_INFO(this->get_logger(), "DroneArmed");
       SetDroneState(DroneArmedState);
       Arm();
+      break;
     case DroneTakeoffState:
       RCLCPP_INFO(this->get_logger(), "DroneTakeoff");
       SetDroneState(DroneTakeoffState);
       Takeoff(GetTakeoffAltitude());
+      break;
     case DroneSearchState:
       RCLCPP_INFO(this->get_logger(), "DroneSearch");
+      break;
     case DroneFollowState:
       RCLCPP_INFO(this->get_logger(), "DroneFollow");
+      break;
     case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneLanding");
+      break;
   }
 }
 
@@ -207,9 +221,9 @@ geometry_msgs::msg::PointStamped DroneControllerNode::GetFollowPosition()
  */
 bool DroneControllerNode::CheckForValidTarget()
 {
-  static const double constraint_x = 10;
-  static const double constraint_y = 10;
-  static const double constraint_z = 100;
+  static constexpr double constraint_x = 10;
+  static constexpr double constraint_y = 10;
+  static constexpr double constraint_z = 100;
 
   if (const auto current_point = GetFollowPosition(); current_point.point.x < constraint_x &&
                                                       current_point.point.y < constraint_y &&
