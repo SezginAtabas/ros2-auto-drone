@@ -10,6 +10,7 @@
   <depend>rclcpp</depend>
   <depend>mavros_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend> Eigen3 </depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

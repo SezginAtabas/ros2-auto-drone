@@ -1,6 +1,8 @@
 
 #include "drone_controller.hpp"
 
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
 #include <geometry_msgs/msg/detail/point_stamped__struct.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/srv/command_bool.hpp>
@@ -16,6 +18,9 @@
 #include "mavros_msgs/srv/detail/message_interval__struct.hpp"
 #include "mavros_msgs/srv/detail/set_mode__struct.hpp"
 
+using namespace mavros_msgs::srv;
+using namespace geometry_msgs::msg;
+
 /**
  * @brief Constructor for the DroneControllerNode class.
  *
@@ -27,22 +32,21 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
 {
   // Service Clients
   mode_client_ = create_client<mavros_msgs::srv::SetMode>("/mavros/set_mode");
-  stream_rate_client_ =
-    create_client<mavros_msgs::srv::MessageInterval>("/mavros/set_message_interval");
-  arm_client_ = create_client<mavros_msgs::srv::CommandBool>("/mavros/cmd/arming");
-  takeoff_client_ = create_client<mavros_msgs::srv::CommandTOL>("/mavros/cmd/takeoff");
+  stream_rate_client_ = create_client<MessageInterval>("/mavros/set_message_interval");
+  arm_client_ = create_client<CommandBool>("/mavros/cmd/arming");
+  takeoff_client_ = create_client<CommandTOL>("/mavros/cmd/takeoff");
 
   // Publishers
-  local_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
-    "/mavros/setpoint_position/local", rclcpp::SensorDataQoS());
+  local_pose_pub_ =
+    create_publisher<PoseStamped>("/mavros/setpoint_position/local", rclcpp::SensorDataQoS());
   // Subscribers
-  local_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+  local_pose_sub_ = create_subscription<PoseStamped>(
     "/mavros/local_position/pose", rclcpp::SensorDataQoS(),
-    [this](const geometry_msgs::msg::PoseStamped & msg) { LocalPoseCallback(msg); });
+    [this](const PoseStamped & msg) { LocalPoseCallback(msg); });
 
-  follow_position_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+  follow_position_sub_ = create_subscription<PointStamped>(
     "/my_drone/target_position", rclcpp::SensorDataQoS(),
-    [this](const geometry_msgs::msg::PointStamped & msg) { FollowPositionCallback(msg); });
+    [this](const PointStamped & msg) { FollowPositionCallback(msg); });
 
   update_timer_ =
     this->create_wall_timer(std::chrono::milliseconds(100), [this] { UpdateTimerCallback(); });
@@ -56,10 +60,16 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node")
 float DroneControllerNode::GetFollowDistance() { return 1.5; }
 float DroneControllerNode::GetTakeoffAltitude() { return 3.0; }
 
-void DroneControllerNode::FollowPositionCallback(const geometry_msgs::msg::PointStamped & msg) const
+void DroneControllerNode::FollowPositionCallback(const PointStamped & msg)
 {
+  SetFollowPosition(msg);
   RCLCPP_INFO(
     this->get_logger(), "Follow point: x:%f, y:%f, z:%f", msg.point.x, msg.point.y, msg.point.z);
+}
+
+void DroneControllerNode::SetFollowPosition(const PointStamped & follow_position)
+{
+  this->follow_position_ = follow_position;
 }
 
 /**
@@ -70,7 +80,7 @@ void DroneControllerNode::FollowPositionCallback(const geometry_msgs::msg::Point
  *
  * @param msg The PoseStamped message containing the current local pose of the drone.
  */
-void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStamped & msg) const
+void DroneControllerNode::LocalPoseCallback(const PoseStamped & msg) const
 {
   RCLCPP_INFO(
     this->get_logger(), "Local pose received x:%f y:%f z:%f", msg.pose.position.x,
@@ -87,12 +97,11 @@ void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStampe
  */
 void DroneControllerNode::Takeoff(const float altitude) const
 {
-  const auto request = std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
+  const auto request = std::make_shared<CommandTOL::Request>();
   request->altitude = altitude;
   auto result = takeoff_client_->async_send_request(
-    request, [this](rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) {
-      this->TakeoffCallback(future);
-    });
+    request,
+    [this](rclcpp::Client<CommandTOL>::SharedFuture future) { this->TakeoffCallback(future); });
 }
 
 /**
@@ -104,8 +113,7 @@ void DroneControllerNode::Takeoff(const float altitude) const
  *
  * @param future The future object containing the response from the CommandTOL service.
  */
-void DroneControllerNode::TakeoffCallback(
-  rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedFuture future) const
+void DroneControllerNode::TakeoffCallback(rclcpp::Client<CommandTOL>::SharedFuture future) const
 {
   if (const auto & response = future.get(); response->success) {
     RCLCPP_INFO(this->get_logger(), "Takeoff Success.");
@@ -123,12 +131,11 @@ void DroneControllerNode::TakeoffCallback(
  */
 void DroneControllerNode::Arm() const
 {
-  const auto request = std::make_shared<mavros_msgs::srv::CommandBool::Request>();
+  const auto request = std::make_shared<CommandBool::Request>();
   request->value = true;
   auto result = arm_client_->async_send_request(
-    request, [this](rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedFuture future) {
-      this->ArmCallback(future);
-    });
+    request,
+    [this](rclcpp::Client<CommandBool>::SharedFuture future) { this->ArmCallback(future); });
 }
 
 /**
@@ -141,8 +148,7 @@ void DroneControllerNode::Arm() const
  * @param future The shared future object containing the response from the
  *               arming service.
  */
-void DroneControllerNode::ArmCallback(
-  rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedFuture future) const
+void DroneControllerNode::ArmCallback(rclcpp::Client<CommandBool>::SharedFuture future) const
 {
   if (const auto & response = future.get(); response->success) {
     RCLCPP_INFO(this->get_logger(), "DRONE ARMED, Starting Takeoff ...");
@@ -187,6 +193,7 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state)
       break;
     case DroneSearchState:
       RCLCPP_INFO(this->get_logger(), "DroneSearch");
+      SetDroneState(DroneSearchState);
       break;
     case DroneFollowState:
       RCLCPP_INFO(this->get_logger(), "DroneFollow");
@@ -197,18 +204,17 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state)
   }
 }
 
+void DroneControllerNode::Search() {}
+
 /**
  * @brief Retrieves the current follow position of the drone.
  *
  * This function returns the stored follow position encapsulated in a PointStamped message,
  * which contains the position coordinates and associated timestamp.
  *
- * @return The current follow position as a geometry_msgs::msg::PointStamped.
+ * @return The current follow position as a PointStamped.
  */
-geometry_msgs::msg::PointStamped DroneControllerNode::GetFollowPosition()
-{
-  return follow_position_;
-}
+PointStamped DroneControllerNode::GetFollowPosition() { return follow_position_; }
 
 /**
  * @brief Checks if the current follow position is within valid constraints.
@@ -246,7 +252,7 @@ void DroneControllerNode::UpdateTimerCallback() const {}
  */
 void DroneControllerNode::SetMode(const std::string & mode)
 {
-  const auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
+  const auto request = std::make_shared<SetMode::Request>();
   request->custom_mode = mode;
   auto result = mode_client_->async_send_request(
     request, [this, mode](rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture future) {
@@ -270,12 +276,12 @@ void DroneControllerNode::SetMode(const std::string & mode)
 void DroneControllerNode::SetMessageInterval(
   const uint32_t mavlink_message_id, const float message_rate) const
 {
-  const auto request = std::make_shared<mavros_msgs::srv::MessageInterval::Request>();
+  const auto request = std::make_shared<MessageInterval::Request>();
   request->message_id = mavlink_message_id;
   request->message_rate = message_rate;
 
   auto result = stream_rate_client_->async_send_request(
-    request, [this](rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture future) {
+    request, [this](rclcpp::Client<MessageInterval>::SharedFuture future) {
       this->MessageIntervalCallback(future);
     });
 }
@@ -317,7 +323,7 @@ void DroneControllerNode::SetModeCallback(
  *               interval service request.
  */
 void DroneControllerNode::MessageIntervalCallback(
-  const rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture & future) const
+  const rclcpp::Client<MessageInterval>::SharedFuture & future) const
 {
   if (const auto & response = future.get(); response->success) {
     RCLCPP_INFO(this->get_logger(), "SUCCESS");
