@@ -44,6 +44,7 @@ private:
   DroneState drone_state_;
   // position drone will follow, distance relative to the drone
   PointStamped follow_position_;
+  PoseStamped drone_local_pose_;
 
 public:
   DroneControllerNode();
@@ -59,6 +60,9 @@ public:
   void SetFollowPosition(const PointStamped & follow_position);
   bool CheckForValidTarget();
 
+  void SetDroneLocalPose(const PoseStamped & pose_stamped);
+  PoseStamped DroneLocalPose();
+
   // Publishers
   rclcpp::Publisher<PoseStamped>::SharedPtr local_pose_pub_;
   // Subscribers
@@ -66,19 +70,19 @@ public:
   rclcpp::Subscription<PointStamped>::SharedPtr follow_position_sub_;
 
   // Topic callbacks
-  void LocalPoseCallback(const PoseStamped & msg) const;
+  void LocalPoseCallback(const PoseStamped & msg);
   void FollowPositionCallback(const PointStamped & msg);
 
   // Drone States
   void SetMode(const std::string & mode);
   void SetMessageInterval(uint32_t mavlink_message_id, float message_rate) const;
-  void Arm() const;
-  void Takeoff(float altitude) const;
+  void Arm();
+  void Takeoff(float altitude);
   void Search();
 
   // Service Callbacks
-  void TakeoffCallback(rclcpp::Client<CommandTOL>::SharedFuture future) const;
-  void ArmCallback(rclcpp::Client<CommandBool>::SharedFuture future) const;
+  void TakeoffCallback(rclcpp::Client<CommandTOL>::SharedFuture future);
+  void ArmCallback(rclcpp::Client<CommandBool>::SharedFuture future);
   void SetModeCallback(
     const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture & future,
     const std::string & mode);

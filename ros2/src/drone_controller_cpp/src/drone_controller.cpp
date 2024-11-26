@@ -80,12 +80,20 @@ void DroneControllerNode::SetFollowPosition(const PointStamped & follow_position
  *
  * @param msg The PoseStamped message containing the current local pose of the drone.
  */
-void DroneControllerNode::LocalPoseCallback(const PoseStamped & msg) const
+void DroneControllerNode::LocalPoseCallback(const PoseStamped & msg)
 {
+  SetDroneLocalPose(msg);
   RCLCPP_INFO(
     this->get_logger(), "Local pose received x:%f y:%f z:%f", msg.pose.position.x,
     msg.pose.position.y, msg.pose.position.z);
 }
+
+void DroneControllerNode::SetDroneLocalPose(const PoseStamped & pose_stamped)
+{
+  drone_local_pose_ = pose_stamped;
+}
+
+PoseStamped DroneControllerNode::DroneLocalPose() { return drone_local_pose_; }
 
 /**
  * @brief Initiates the takeoff procedure to a specified altitude.
@@ -95,7 +103,7 @@ void DroneControllerNode::LocalPoseCallback(const PoseStamped & msg) const
  *
  * @param altitude The target altitude to reach upon takeoff, in meters.
  */
-void DroneControllerNode::Takeoff(const float altitude) const
+void DroneControllerNode::Takeoff(const float altitude)
 {
   const auto request = std::make_shared<CommandTOL::Request>();
   request->altitude = altitude;
@@ -113,10 +121,11 @@ void DroneControllerNode::Takeoff(const float altitude) const
  *
  * @param future The future object containing the response from the CommandTOL service.
  */
-void DroneControllerNode::TakeoffCallback(rclcpp::Client<CommandTOL>::SharedFuture future) const
+void DroneControllerNode::TakeoffCallback(rclcpp::Client<CommandTOL>::SharedFuture future)
 {
   if (const auto & response = future.get(); response->success) {
     RCLCPP_INFO(this->get_logger(), "Takeoff Success.");
+    UpdateDroneState(DroneSearchState);
   } else {
     RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
   }
@@ -129,7 +138,7 @@ void DroneControllerNode::TakeoffCallback(rclcpp::Client<CommandTOL>::SharedFutu
  * using the arm_client_ service. When the request completes, the ArmCallback
  * method is called to handle the result.
  */
-void DroneControllerNode::Arm() const
+void DroneControllerNode::Arm()
 {
   const auto request = std::make_shared<CommandBool::Request>();
   request->value = true;
@@ -148,11 +157,11 @@ void DroneControllerNode::Arm() const
  * @param future The shared future object containing the response from the
  *               arming service.
  */
-void DroneControllerNode::ArmCallback(rclcpp::Client<CommandBool>::SharedFuture future) const
+void DroneControllerNode::ArmCallback(rclcpp::Client<CommandBool>::SharedFuture future)
 {
   if (const auto & response = future.get(); response->success) {
     RCLCPP_INFO(this->get_logger(), "DRONE ARMED, Starting Takeoff ...");
-    Takeoff(GetTakeoffAltitude());
+    UpdateDroneState(DroneTakeoffState);
   } else {
     RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
   }
@@ -194,6 +203,7 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state)
     case DroneSearchState:
       RCLCPP_INFO(this->get_logger(), "DroneSearch");
       SetDroneState(DroneSearchState);
+      Search();
       break;
     case DroneFollowState:
       RCLCPP_INFO(this->get_logger(), "DroneFollow");
@@ -204,7 +214,9 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state)
   }
 }
 
-void DroneControllerNode::Search() {}
+void DroneControllerNode::Search()
+{
+}
 
 /**
  * @brief Retrieves the current follow position of the drone.
