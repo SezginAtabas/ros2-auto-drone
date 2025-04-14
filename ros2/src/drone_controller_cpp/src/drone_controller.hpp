@@ -45,12 +45,17 @@ private:
 
   void DroneFollowBehaviour();
 
+  void DroneLandBehaviour();
+
   DroneState drone_state_;
   // position drone will follow, distance relative to the drone
   geometry_msgs::msg::PointStamped follow_position_;
   geometry_msgs::msg::PoseStamped drone_local_pose_;
-
   std::array<Eigen::Vector3d, 4> search_waypoints_;
+
+  rclcpp::Time target_detect_time_{};
+  // follow timeout in seconds.
+  static float follow_timeout_{20};
 
 public:
   DroneControllerNode();
@@ -60,6 +65,8 @@ public:
 
   static float GetTakeoffAltitude();
 
+  static float GetFollowTimeout();
+
   geometry_msgs::msg::PoseStamped DroneLocalPose();
 
   DroneState GetDroneState() const;
@@ -68,6 +75,8 @@ public:
 
   geometry_msgs::msg::PointStamped GetFollowPosition();
 
+  rclcpp::Time GetTargetDetectTime();
+
   // <--------- Setter Methods --------->
   void SetDroneState(DroneState state);
 
@@ -75,6 +84,9 @@ public:
 
   void SetDroneLocalPose(const geometry_msgs::msg::PoseStamped &pose_stamped);
 
+  void SetTargetDetectTime(const rclcpp::Time &other);
+
+  // <--------- Publishers and Subscribers --------->
   // Publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_pub_;
   // Subscribers
