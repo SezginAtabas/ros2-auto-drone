@@ -196,41 +196,84 @@ void DroneControllerNode::MessageIntervalCallback(
 }
 
 void DroneControllerNode::UpdateTimerCallback() {
-  if (GetDroneState() == DroneSearchState) {
-    if (!CheckForValidTarget()) {
-      // When a target is found, make sure the drone keeps its current position
-      // and any command that may be still active is overwritten.
-      const auto current_pose = DroneLocalPose();
+  switch (GetDroneState()) {
+    case DroneSearchState:
+      RCLCPP_DEBUG(this->get_logger(), "Executing drone search behaviour...");
+      DroneSearchBehaviour();
+    case DroneFollowState:
+      DroneFollowBehaviour();
+      RCLCPP_DEBUG(this->get_logger(), "Executing drone follow behaviour...");
+    default:
+      RCLCPP_DEBUG(this->get_logger(), "Default behaviour, doing nothing.");
+  }
+}
+
+
+// <--------- Drone Behaviours --------->
+
+void DroneControllerNode::DroneSearchBehaviour() {
+  if (!CheckForValidTarget()) {
+    // When a target is found, make sure the drone keeps its current position
+    // and any command that may be still active is overwritten.
+    const auto current_pose = DroneLocalPose();
+    auto target_pose = geometry_msgs::msg::PoseStamped();
+
+    target_pose.pose = current_pose.pose;
+    target_pose.header.stamp = now();
+
+    SetDroneLocalPose(target_pose);
+    UpdateDroneState(DroneFollowState);
+  } else {
+    static int i = 0;
+    static constexpr double tolerance{0.2};
+    const auto waypoints = GetSearchWaypoints();
+
+    if (const auto current_pose = DroneLocalPose();
+      current_pose.pose.position.x - waypoints->at(i)[0] <= tolerance &&
+      current_pose.pose.position.y - waypoints->at(i)[1] <= tolerance) {
       auto target_pose = geometry_msgs::msg::PoseStamped();
 
-      target_pose.pose = current_pose.pose;
+      target_pose.pose.orientation = current_pose.pose.orientation;
+      target_pose.header.frame_id = current_pose.header.frame_id;
       target_pose.header.stamp = now();
 
+      target_pose.pose.position.x = waypoints->at(i)[0];
+      target_pose.pose.position.y = waypoints->at(i)[1];
+      target_pose.pose.position.z = waypoints->at(i)[2];
+
       SetDroneLocalPose(target_pose);
-      UpdateDroneState(DroneFollowState);
-    } else {
-      static int i = 0;
-      static constexpr double tolerance{0.2};
-      const auto waypoints = GetSearchWaypoints();
-
-      if (const auto current_pose = DroneLocalPose();
-        current_pose.pose.position.x - waypoints->at(i)[0] <= tolerance &&
-        current_pose.pose.position.y - waypoints->at(i)[1] <= tolerance) {
-        auto target_pose = geometry_msgs::msg::PoseStamped();
-
-        target_pose.pose.orientation = current_pose.pose.orientation;
-        target_pose.header.frame_id = current_pose.header.frame_id;
-        target_pose.header.stamp = now();
-
-        target_pose.pose.position.x = waypoints->at(i)[0];
-        target_pose.pose.position.y = waypoints->at(i)[1];
-        target_pose.pose.position.z = waypoints->at(i)[2];
-
-        SetDroneLocalPose(target_pose);
-        ++i;
-      }
+      ++i;
     }
   }
+}
+
+void DroneControllerNode::DroneFollowBehaviour() {
+  // Current pose of the drone.
+  auto current_drone_pose = DroneLocalPose();
+  // Targets position relative to the drone.
+  auto target_pos = GetFollowPosition();
+  // Create a new pose msg to send to the drone.
+  auto pose_to_send = geometry_msgs::msg::PoseStamped();
+  // Keep the orientation same.
+  pose_to_send.pose.orientation = current_drone_pose.pose.orientation;
+  // Calculate the new position of the drone to follow the target using
+  // the follow distance and the position of the target.
+  pose_to_send.pose.position = current_drone_pose.pose.position;
+  pose_to_send.pose.position.x += target_pos.point.x;
+  pose_to_send.pose.position.y += target_pos.point.y;
+  pose_to_send.pose.position.z -= target_pos.point.z - GetFollowDistance();
+  // Header of the message.
+  pose_to_send.header.frame_id = current_drone_pose.header.frame_id;
+  pose_to_send.header.stamp = this->get_clock()->now();
+
+  RCLCPP_INFO(this->get_logger(), "Drone moving to: x=%.2f, y=%.2f, z=%.2f in frame '%s'",
+              pose_to_send.pose.position.x,
+              pose_to_send.pose.position.y,
+              pose_to_send.pose.position.z,
+              pose_to_send.header.frame_id.c_str());
+
+  // Send the message.
+  local_pose_pub_->publish(pose_to_send);
 }
 
 // <-------- Future Request Methods --------->

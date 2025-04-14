@@ -36,7 +36,14 @@ private:
 
   rclcpp::TimerBase::SharedPtr update_timer_;
 
+  // This callback methods is periodically called by timer to control
+  // the behaviour of the drone. This is where searching and following logic
+  // is executed.
   void UpdateTimerCallback();
+
+  void DroneSearchBehaviour();
+
+  void DroneFollowBehaviour();
 
   DroneState drone_state_;
   // position drone will follow, distance relative to the drone
@@ -67,7 +74,6 @@ public:
   void SetFollowPosition(const geometry_msgs::msg::PointStamped &follow_position);
 
   void SetDroneLocalPose(const geometry_msgs::msg::PoseStamped &pose_stamped);
-
 
   // Publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_pub_;
