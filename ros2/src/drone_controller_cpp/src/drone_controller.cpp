@@ -59,7 +59,11 @@ float DroneControllerNode::GetFollowDistance() { return 1.5; }
 float DroneControllerNode::GetTakeoffAltitude() { return 3.0; }
 
 float DroneControllerNode::GetFollowTimeout() {
-  return follow_timeout_;
+  return 20.0;
+}
+
+float DroneControllerNode::GetLandAltitude() {
+  return 0.5;
 }
 
 geometry_msgs::msg::PoseStamped DroneControllerNode::DroneLocalPose() { return drone_local_pose_; }
@@ -268,38 +272,20 @@ void DroneControllerNode::DroneFollowBehaviour() {
   // Check if the timeout for target detection is passed, if so set to search state.
   // This ensures that drone will get back to searching if it loses the target.
   if (this->get_clock()->now().seconds() - GetTargetDetectTime().seconds() < GetFollowTimeout()) {
-    // Current pose of the drone.
-    auto current_drone_pose = DroneLocalPose();
-    // Targets position relative to the drone.
-    auto target_pos = GetFollowPosition();
-    // Create a new pose msg to send to the drone.
-    auto pose_to_send = geometry_msgs::msg::PoseStamped();
-    // Keep the orientation same.
-    pose_to_send.pose.orientation = current_drone_pose.pose.orientation;
-    // Calculate the new position of the drone to follow the target using
-    // the follow distance and the position of the target.
-    pose_to_send.pose.position = current_drone_pose.pose.position;
-    pose_to_send.pose.position.x += target_pos.point.x;
-    pose_to_send.pose.position.y += target_pos.point.y;
-    pose_to_send.pose.position.z -= target_pos.point.z - GetFollowDistance();
-    // Header of the message.
-    pose_to_send.header.frame_id = current_drone_pose.header.frame_id;
-    pose_to_send.header.stamp = this->get_clock()->now();
-
-    RCLCPP_INFO(this->get_logger(), "Drone moving to: x=%.2f, y=%.2f, z=%.2f in frame '%s'",
-                pose_to_send.pose.position.x,
-                pose_to_send.pose.position.y,
-                pose_to_send.pose.position.z,
-                pose_to_send.header.frame_id.c_str());
-
-    // Send the message.
-    local_pose_pub_->publish(pose_to_send);
+    MoveToTarget(GetFollowDistance());
   } else {
     UpdateDroneState(DroneFollowState);
   }
 }
 
 void DroneControllerNode::DroneLandBehaviour() {
+  if (GetFollowPosition().point.z > GetLandAltitude()) {
+    MoveToTarget(GetLandAltitude());
+  } else {
+    // Trigger automated landing by changing the mode of the drone to LAND.
+    ChangeMode("LAND");
+    SetDroneState(DroneAutoLandingState);
+  }
 }
 
 // <-------- Future Request Methods --------->
@@ -450,5 +436,36 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state) {
     case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneLanding");
       break;
+    case DroneAutoLandingState:
+      RCLCPP_INFO(this->get_logger(), "DroneAutoLandingState");
+      break;
   }
+}
+
+void DroneControllerNode::MoveToTarget(const float &z_to_target) {
+  // Current pose of the drone.
+  const auto current_drone_pose = DroneLocalPose();
+  // Targets position relative to the drone.
+  const auto target_pos = GetFollowPosition();
+  // Create a new pose msg to send to the drone.
+  auto pose_to_send = geometry_msgs::msg::PoseStamped();
+  // Keep the orientation same.
+  pose_to_send.pose.orientation = current_drone_pose.pose.orientation;
+  // Calculate the new position of the drone.
+  pose_to_send.pose.position = current_drone_pose.pose.position;
+  pose_to_send.pose.position.x += target_pos.point.x;
+  pose_to_send.pose.position.y += target_pos.point.y;
+  pose_to_send.pose.position.z -= target_pos.point.z - z_to_target();
+  // Header of the message.
+  pose_to_send.header.frame_id = current_drone_pose.header.frame_id;
+  pose_to_send.header.stamp = this->get_clock()->now();
+
+  RCLCPP_INFO(this->get_logger(), "Drone moving to: x=%.2f, y=%.2f, z=%.2f in frame '%s'",
+              pose_to_send.pose.position.x,
+              pose_to_send.pose.position.y,
+              pose_to_send.pose.position.z,
+              pose_to_send.header.frame_id.c_str());
+
+  // Send the message.
+  local_pose_pub_->publish(pose_to_send);
 }

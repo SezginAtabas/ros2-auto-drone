@@ -24,6 +24,7 @@ enum DroneState {
   DroneSearchState,
   DroneFollowState,
   DroneLandingState,
+  DroneAutoLandingState,
 };
 
 class DroneControllerNode : public rclcpp::Node {
@@ -54,8 +55,6 @@ private:
   std::array<Eigen::Vector3d, 4> search_waypoints_;
 
   rclcpp::Time target_detect_time_{};
-  // follow timeout in seconds.
-  static float follow_timeout_{20};
 
 public:
   DroneControllerNode();
@@ -66,6 +65,8 @@ public:
   static float GetTakeoffAltitude();
 
   static float GetFollowTimeout();
+
+  static float GetLandAltitude();
 
   geometry_msgs::msg::PoseStamped DroneLocalPose();
 
@@ -124,4 +125,6 @@ public:
   bool CheckForValidTarget();
 
   void UpdateDroneState(DroneState target_state);
+
+  void MoveToTarget(const float &z_to_target);
 };
