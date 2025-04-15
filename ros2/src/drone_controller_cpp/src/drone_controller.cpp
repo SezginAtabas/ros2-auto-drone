@@ -219,11 +219,15 @@ void DroneControllerNode::UpdateTimerCallback() {
     case DroneSearchState:
       RCLCPP_INFO(this->get_logger(), "Executing drone search behaviour...");
       DroneSearchBehaviour();
+      break;
     case DroneFollowState:
-      DroneFollowBehaviour();
       RCLCPP_INFO(this->get_logger(), "Executing drone follow behaviour...");
-    case DroneFollowState():
+      DroneFollowBehaviour();
+      break;
+    case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "Executing drone land behaviour...");
+      DroneLandBehaviour();
+      break;
     default:
       RCLCPP_DEBUG(this->get_logger(), "Default behaviour, doing nothing.");
   }
@@ -455,7 +459,7 @@ void DroneControllerNode::MoveToTarget(const float &z_to_target) {
   pose_to_send.pose.position = current_drone_pose.pose.position;
   pose_to_send.pose.position.x += target_pos.point.x;
   pose_to_send.pose.position.y += target_pos.point.y;
-  pose_to_send.pose.position.z -= target_pos.point.z - z_to_target();
+  pose_to_send.pose.position.z -= target_pos.point.z - z_to_target;
   // Header of the message.
   pose_to_send.header.frame_id = current_drone_pose.header.frame_id;
   pose_to_send.header.stamp = this->get_clock()->now();
