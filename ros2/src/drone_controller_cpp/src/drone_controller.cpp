@@ -44,6 +44,10 @@ DroneControllerNode::DroneControllerNode() : Node("drone_controller_node") {
     "/my_drone/target_position", rclcpp::SensorDataQoS(),
     [this](const geometry_msgs::msg::PointStamped &msg) { FollowPositionCallback(msg); });
 
+  drone_mode_sub_ = create_subscription<mavros_msgs::msg::State>(
+    "/mavros/state", rclcpp::SensorDataQoS(),
+    [this](const mavros_msgs::msg::State &msg) { DroneModeCallback(msg); });
+
   update_timer_ =
       this->create_wall_timer(std::chrono::milliseconds(100), [this] { UpdateTimerCallback(); });
 
@@ -239,6 +243,10 @@ void DroneControllerNode::UpdateTimerCallback() {
     default:
       RCLCPP_DEBUG(this->get_logger(), "Default behaviour, doing nothing.");
   }
+}
+
+void DroneControllerNode::DroneModeCallback(const mavros_msgs::msg::State &msg) {
+  drone_mode_ = msg;
 }
 
 

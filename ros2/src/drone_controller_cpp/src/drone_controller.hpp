@@ -1,19 +1,23 @@
 #pragma once
+
 #include <cstdint>
 #include <eigen3/Eigen/Core>
-#include <geometry_msgs/msg/point_stamped.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
-#include <mavros_msgs/srv/command_bool.hpp>
-#include <mavros_msgs/srv/command_tol.hpp>
-#include <mavros_msgs/srv/detail/command_tol__struct.hpp>
-#include <mavros_msgs/srv/detail/message_interval__struct.hpp>
-#include <mavros_msgs/srv/message_interval.hpp>
-#include <mavros_msgs/srv/set_mode.hpp>
+// rclcpp
 #include <rclcpp/client.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
-
+// ROS2 messages
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+// Mavros services and messages
+#include <mavros_msgs/msg/state.hpp>
+#include <mavros_msgs/srv/command_bool.hpp>
+#include <mavros_msgs/srv/command_tol.hpp>
+#include <mavros_msgs/srv/message_interval.hpp>
+#include <mavros_msgs/srv/set_mode.hpp>
 #include "mavros_msgs/srv/detail/command_bool__struct.hpp"
+#include <mavros_msgs/srv/detail/command_tol__struct.hpp>
+#include <mavros_msgs/srv/detail/message_interval__struct.hpp>
 #include "mavros_msgs/srv/detail/set_mode__struct.hpp"
 
 enum DroneState {
@@ -55,9 +59,18 @@ private:
   std::array<Eigen::Vector3d, 4> search_waypoints_;
 
   rclcpp::Time target_detect_time_{};
+  mavros_msgs::msg::State drone_mode_;
 
 public:
   DroneControllerNode();
+
+  // <--------- Publishers and Subscribers --------->
+  // Publishers
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_pub_;
+  // Subscribers
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr follow_position_sub_;
+  rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr drone_mode_sub_;
 
   // <--------- Getter Methods --------->
   static float GetFollowDistance();
@@ -87,13 +100,6 @@ public:
 
   void SetTargetDetectTime(const rclcpp::Time &other);
 
-  // <--------- Publishers and Subscribers --------->
-  // Publishers
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_pub_;
-  // Subscribers
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr local_pose_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr follow_position_sub_;
-
   // <--------- Callback Methods --------->
   void FollowPositionCallback(const geometry_msgs::msg::PointStamped &msg);
 
@@ -109,6 +115,8 @@ public:
 
   void MessageIntervalCallback(
     const rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture &future) const;
+
+  void DroneModeCallback(const mavros_msgs::msg::State &msg);
 
   // <-------- Future Request Methods --------->
   void ChangeMode(const std::string &mode);
