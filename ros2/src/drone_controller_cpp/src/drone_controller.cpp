@@ -214,6 +214,14 @@ void DroneControllerNode::MessageIntervalCallback(
   }
 }
 
+/**
+ * @brief Controls the drone behaviour based on the state of the drone.
+ *
+ *  This callback function is triggered periodically by the timer.
+ *  Based on the state of the drone it calls the corresponding method that
+ *  controls the behaviour of the drone on that state.
+ *
+ */
 void DroneControllerNode::UpdateTimerCallback() {
   switch (GetDroneState()) {
     case DroneSearchState:
@@ -288,7 +296,7 @@ void DroneControllerNode::DroneLandBehaviour() {
   } else {
     // Trigger automated landing by changing the mode of the drone to LAND.
     ChangeMode("LAND");
-    SetDroneState(DroneAutoLandingState);
+    UpdateDroneState(DroneAutoLandingState);
   }
 }
 
@@ -436,12 +444,15 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state) {
       break;
     case DroneFollowState:
       RCLCPP_INFO(this->get_logger(), "DroneFollow");
+      SetDroneState(DroneFollowState);
       break;
     case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneLanding");
+      SetDroneState(DroneLandingState);
       break;
     case DroneAutoLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneAutoLandingState");
+      SetDroneState(DroneAutoLandingState);
       break;
   }
 }
