@@ -70,6 +70,11 @@ float DroneControllerNode::GetLandAltitude() {
   return 0.5;
 }
 
+bool DroneControllerNode::GetUseManualControl() const {
+  return use_manual_control_;
+}
+
+
 geometry_msgs::msg::PoseStamped DroneControllerNode::DroneLocalPose() { return drone_local_pose_; }
 
 DroneState DroneControllerNode::GetDroneState() const { return this->drone_state_; }
@@ -447,12 +452,26 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state) {
       Takeoff(GetTakeoffAltitude());
       break;
     case DroneSearchState:
+      if (GetUseManualControl()) {
+        UpdateDroneState(DroneManualState);
+        break;
+      }
       RCLCPP_INFO(this->get_logger(), "DroneSearch");
       SetDroneState(DroneSearchState);
       break;
+
     case DroneFollowState:
+      if (GetUseManualControl()) {
+        UpdateDroneState(DroneManualState);
+        break;
+      }
       RCLCPP_INFO(this->get_logger(), "DroneFollow");
       SetDroneState(DroneFollowState);
+      break;
+    case DroneManualState:
+      RCLCPP_INFO(this->get_logger(), "DroneManualState");
+      SetDroneState(DroneManualState);
+      ChangeMode("MANUAL");
       break;
     case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneLanding");

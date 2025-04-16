@@ -25,6 +25,7 @@ enum DroneState {
   DroneGuidedState,
   DroneArmedState,
   DroneTakeoffState,
+  DroneManualState,
   DroneSearchState,
   DroneFollowState,
   DroneLandingState,
@@ -61,6 +62,10 @@ private:
   rclcpp::Time target_detect_time_{};
   mavros_msgs::msg::State drone_mode_;
 
+  // Enables manual mode in which only vision assisted landing is active and
+  // search and follow behaviours and disabled.
+  const bool use_manual_control_{true};
+
 public:
   DroneControllerNode();
 
@@ -80,6 +85,8 @@ public:
   static float GetFollowTimeout();
 
   static float GetLandAltitude();
+
+  bool GetUseManualControl() const;
 
   geometry_msgs::msg::PoseStamped DroneLocalPose();
 
@@ -114,7 +121,7 @@ public:
     const std::string &mode);
 
   void MessageIntervalCallback(
-    const rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture &future) const;
+    rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture &future) const;
 
   void DroneModeCallback(const mavros_msgs::msg::State &msg);
 
