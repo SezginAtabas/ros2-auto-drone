@@ -64,7 +64,7 @@ private:
 
   // Enables manual mode in which only vision assisted landing is active and
   // search and follow behaviours and disabled.
-  const bool use_manual_control_{true};
+  const bool use_manual_control_{false};
 
 public:
   DroneControllerNode();
@@ -121,12 +121,14 @@ public:
     const std::string &mode);
 
   void MessageIntervalCallback(
-    rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture &future) const;
+    const rclcpp::Client<mavros_msgs::srv::MessageInterval>::SharedFuture &future) const;
 
   void DroneModeCallback(const mavros_msgs::msg::State &msg);
 
   // <-------- Future Request Methods --------->
   void ChangeMode(const std::string &mode);
+
+  void ChangeModeManual();
 
   void SetMessageInterval(uint32_t mavlink_message_id, float message_rate) const;
 

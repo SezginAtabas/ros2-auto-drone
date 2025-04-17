@@ -135,7 +135,7 @@ void DroneControllerNode::FollowPositionCallback(const geometry_msgs::msg::Point
 void DroneControllerNode::LocalPoseCallback(const geometry_msgs::msg::PoseStamped &msg) {
   SetDroneLocalPose(msg);
   SetTargetDetectTime(msg.header.stamp);
-  RCLCPP_INFO(
+  RCLCPP_DEBUG(
     this->get_logger(), "Local pose received x:%f y:%f z:%f", msg.pose.position.x,
     msg.pose.position.y, msg.pose.position.z);
 }
@@ -195,12 +195,8 @@ void DroneControllerNode::ChangeModeCallback(
   const rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture &future, const std::string &mode) {
   if (const auto &response = future.get(); response->mode_sent) {
     RCLCPP_INFO(this->get_logger(), "Mode changed successfully.");
-    if (mode == "GUIDED") {
-      RCLCPP_INFO(this->get_logger(), "Arming drone ...");
-      UpdateDroneState(DroneArmedState);
-    }
   } else {
-    RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    RCLCPP_INFO(this->get_logger(), "Mode Change Service In-Progress...");
   }
 }
 
@@ -324,6 +320,7 @@ void DroneControllerNode::DroneLandBehaviour() {
  *       to handle the service response.
  */
 void DroneControllerNode::ChangeMode(const std::string &mode) {
+  RCLCPP_INFO(this->get_logger(), "Changing mode");
   const auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
   request->custom_mode = mode;
   auto result = mode_client_->async_send_request(
@@ -331,6 +328,16 @@ void DroneControllerNode::ChangeMode(const std::string &mode) {
       this->ChangeModeCallback(future, mode);
     });
 }
+
+void DroneControllerNode::ChangeModeManual() {
+  const auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
+  request->base_mode = mavros_msgs::srv::SetMode_Request_<std::allocator<void> >::MAV_MODE_MANUAL_ARMED;
+  auto result = mode_client_->async_send_request(
+    request, [this](rclcpp::Client<mavros_msgs::srv::SetMode>::SharedFuture future) {
+      this->ChangeModeCallback(future, "MANUAL");
+    });
+}
+
 
 /**
  * @brief Sends a request to set the message interval for a specified MAVLink
@@ -440,6 +447,7 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state) {
       RCLCPP_INFO(this->get_logger(), "DroneGuided");
       SetDroneState(DroneGuidedState);
       ChangeMode("GUIDED");
+      UpdateDroneState(DroneArmedState);
       break;
     case DroneArmedState:
       RCLCPP_INFO(this->get_logger(), "DroneArmed");
@@ -471,7 +479,7 @@ void DroneControllerNode::UpdateDroneState(const DroneState target_state) {
     case DroneManualState:
       RCLCPP_INFO(this->get_logger(), "DroneManualState");
       SetDroneState(DroneManualState);
-      ChangeMode("MANUAL");
+      ChangeModeManual();
       break;
     case DroneLandingState:
       RCLCPP_INFO(this->get_logger(), "DroneLanding");
